@@ -50,7 +50,7 @@
 
 ; numoccuring takes an atom and a list and returns the number of times 
 ; the atom appears in the list
-(define numoccuring
+(define numoccurring
     (lambda (x lis)
         (cond
             [(null? lis)    0]

@@ -61,5 +61,20 @@
       ((list? (car lis)) (+ (sumnumbers* (car lis)) (sumnumbers* (cdr lis))))
       (else (sumnumbers* (cdr lis))))))
 
-; empty - takes a list and removes all atoms, but keeps all parentheses
+; emptyall - takes a list and removes all atoms, but keeps all parentheses
+; (emptyall '(a ((b c) ((d)) () (((e f) g)))))
+(define emptyall
+  (lambda (lis)
+    (cond
+      ((null? lis) '())
+      ((list? (car lis)) (cons (emptyall (car lis)) (emptyall (cdr lis))))
+      (else (emptyall (cdr lis))))))
+
 ; flatten - takes a list that may contain lists and returns a list of just the non-empty list atoms of that list
+; (flatten '(a ((b c) ((d)) () (((e f) g)))))
+(define flatten
+  (lambda (lis)
+    (cond
+      ((null? lis) '())
+      ((list? (car lis)) (myappend (flatten (car lis)) (flatten (cdr lis))))
+      (else (cons (car lis) (flatten (cdr lis)))))))

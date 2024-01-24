@@ -1,0 +1,10 @@
+#lang racket
+
+;; Takes a list of atoms and returns a list that is the reverse of the input
+(define myreverse
+  (lambda (lis)
+    (cond
+      ((null? (cdr lis)) (car lis))
+      (else (cons (myreverse (cdr lis)) (cons (car lis) '()))))))
+
+;; Takes a list and returns a list that is the result of applying the function to each element

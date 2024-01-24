@@ -1,0 +1,14 @@
+#lang racket
+
+(define myappend
+  (lambda (lis1 lis2)
+    (if (null? lis1)
+        lis2
+        (cons (car lis1) (myappend (cdr lis1) lis2)))))
+
+; (myreverse '(a b c d e)) => '(e d c b a)
+(define myreverse
+  (lambda (lis)
+    (if (null? lis)
+        '()
+        (myappend (myreverse (cdr lis)) (cons (car lis) '())))))

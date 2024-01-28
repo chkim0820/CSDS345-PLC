@@ -92,6 +92,15 @@
       ; more efficient version?
 
 ; helper) helper function for number 10; returns true if the next atom equals x, the input atom
+(define search
+  (lambda (x lis)
+    (cond
+      ((null? lis) #f)
+      ((list? (car lis)) (or (search x (car lis)) (search x (cdr lis))))
+      ((equal? (car lis) x) #t)
+      (else (search x (cdr lis))))))
+
+; helper)
 (define xstart
   (lambda (x lis)
     (cond
@@ -101,13 +110,13 @@
       (else #f))))
 
 ; 10) takes an atom and a list with sublists; returns the same except the first occurrence of the atom X in the list shifted to left
-(define moveXleft*
+(define moveXleft* ; works for all X, not just first
   (lambda (x lis)
     (cond
       ((null? lis) '())
-      ((equal? (car lis) x) (cdr lis)) ; go into list! check if the lists inside contain x first
-      ((and (xstart x (cdr lis)) (list? (car lis))) (cons (myappend (car lis) (cons x '())) (moveXleft* x (cdr lis))))
-      ((and (not (null? (cdr lis))) (equal? (car (cdr lis)) x)) (cons x (cons (car lis) (cdr (cdr lis)))))
-      ((xstart x (cdr lis)) (myappend (cons (car lis) (cons x '())) (moveXleft* x (cdr lis))))
-      ((list? (car lis)) (cons (moveXleft* x (car lis)) (moveXleft* x (cdr lis))))
-      (else (cons (car lis) (moveXleft* x (cdr lis))))))) 
+      ((equal? (car lis) x) (cdr lis))
+      ((and (list? (car lis)) (search x (car lis))) (cons (moveXleft* x (car lis)) (cdr lis))) ; list containing x
+      ((and (list? (car lis)) (and (pair? (cdr lis)) (equal? x (car (cdr lis))))) (cons (myappend (moveXleft* x (car lis)) (cons x '())) (moveXleft* x (cdr lis)))) ; current element is list & next is x
+      ((and (pair? (cdr lis)) (equal? (car (cdr lis)) x)) (cons x (cons (car lis) (cdr (cdr lis))))) ; current atom & next is x
+      ((xstart x (cdr lis)) (myappend (cons (car lis) (cons x '())) (moveXleft* x (cdr lis)))) ; x first in the list
+      (else (cons (car lis) (moveXleft* x (cdr lis)))))))

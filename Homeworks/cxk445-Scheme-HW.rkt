@@ -1,7 +1,7 @@
 ; Chaehyeon Kim (cxk445); Scheme assignment for CSDS 345
 #lang racket
 
-; myappend
+; myappend; helper function
 (define myappend
   (lambda (lis1 lis2)
     (if (null? lis1)
@@ -12,8 +12,7 @@
 (define choose
   (lambda (n k)
     (cond
-      ((equal? k 0) 1) ; into one or?
-      ((equal? n k) 1)
+      ((or (equal? k 0) (equal? n k)) 1)
       (else (* (/ n k) (choose (- n 1) (- k 1)))))))
 
 ; 2) takes three atoms and a list & returns a list where each occurrence of atom replaced by following
@@ -68,18 +67,36 @@
       ((null? lis) '())
       ((and (list? (car lis)) (equal? N 1)) (myappend (flattenN 1 (car lis)) (flattenN N (cdr lis))))
       ((list? (car lis)) (cons (flattenN (- N 1) (car lis)) (flattenN N (cdr lis))))
-      (else (cons (car lis) (flattenN N (cdr lis))))))) ; can i do this without helper function?
+      (else (cons (car lis) (flattenN N (cdr lis)))))))
+      ; can i do this without helper function?
 
 ; 8) takes two vectors; returns outerproduct of vectors
-(define outerproduct
+(define outerproduct ; FIX
   (lambda (vec1 vec2); modify vec2
-    ((outerproduct vec1 (cdr vec2)))))
+    (cond
+      ((or (null? vec1) (null? vec2)) '())
+      ((pair? (cdr vec2)) (cons (outerproduct vec1 (cons (car vec2) '())) (outerproduct vec1 (cdr vec2))))
+      (else (cons (* (car vec1) (car vec2)) (outerproduct (cdr vec1) vec2))))))
 
 ; 9) takes a list; returns the largest number in the list
 (define maxvalue*
   (lambda (lis)
     (cond
-      ((null? lis) '())
-      ())))
+      ((null? lis) 'novalue)
+      ((list? (car lis)) (maxvalue* (cons (maxvalue* (car lis)) (cdr lis)))) ; fix
+      ((not (number? (car lis))) (maxvalue* (cdr lis)))
+      ((not (number? (maxvalue* (cdr lis)))) (car lis)) ; (car lis) is a number
+      ((> (car lis) (maxvalue* (cdr lis))) (car lis))
+      (else (maxvalue* (cdr lis))))))
+      ; more efficient version?
 
 ; 10) takes an atom and a list with sublists; returns the same except the first occurrence of the atom X in the list shifted to left
+(define moveXleft*
+  (lambda (x lis)
+    (cond
+      ((null? lis) '())
+      ((equal? (car lis) x) (cdr lis)) ; fix?
+      ((and (and (pair? (cdr lis)) (pair? (car (cdr lis)))) (equal? (car (car (cdr lis))) x)) (cons x (cons (moveXleft* x (car lis)) (moveXleft* x (cdr lis)))))
+      ((and (pair? (cdr lis)) (equal? (car (cdr lis)) x)) (cons x (moveXleft* x (cdr lis))))
+      ((list? (car lis)) (cons (moveXleft* x (car lis)) (moveXleft* x (cdr lis))))
+      (else (cons (car lis) (moveXleft* x (cdr lis)))))))

@@ -71,10 +71,11 @@
       ; can i do this without helper function?
 
 ; 8) takes two vectors; returns outerproduct of vectors
-(define outerproduct ; FIX
-  (lambda (vec1 vec2); modify vec2
+(define outerproduct
+  (lambda (vec1 vec2)
     (cond
       ((or (null? vec1) (null? vec2)) '())
+      ((and (pair? (cdr vec2)) (not (pair? (cdr (cdr vec2))))) (cons (outerproduct vec1 (cons (car vec2) '())) (cons (outerproduct vec1 (cdr vec2)) '())))
       ((pair? (cdr vec2)) (cons (outerproduct vec1 (cons (car vec2) '())) (outerproduct vec1 (cdr vec2))))
       (else (cons (* (car vec1) (car vec2)) (outerproduct (cdr vec1) vec2))))))
 

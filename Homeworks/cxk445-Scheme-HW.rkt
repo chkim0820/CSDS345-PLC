@@ -1,7 +1,7 @@
 ; Chaehyeon Kim (cxk445); Scheme assignment for CSDS 345
 #lang racket
 
-; myappend; helper function
+; helper) appends two lists together
 (define myappend
   (lambda (lis1 lis2)
     (if (null? lis1)
@@ -91,13 +91,23 @@
       (else (maxvalue* (cdr lis))))))
       ; more efficient version?
 
+; helper) helper function for number 10; returns true if the next atom equals x, the input atom
+(define xstart
+  (lambda (x lis)
+    (cond
+      ((null? lis) #f)
+      ((list? (car lis)) (xstart x (car lis)))
+      ((equal? (car lis) x) #t)
+      (else #f))))
+
 ; 10) takes an atom and a list with sublists; returns the same except the first occurrence of the atom X in the list shifted to left
 (define moveXleft*
   (lambda (x lis)
     (cond
       ((null? lis) '())
-      ((equal? (car lis) x) (cdr lis)) ; fix?
-      ((and (and (pair? (cdr lis)) (pair? (car (cdr lis)))) (equal? (car (car (cdr lis))) x)) (cons x (cons (moveXleft* x (car lis)) (moveXleft* x (cdr lis)))))
-      ((and (pair? (cdr lis)) (equal? (car (cdr lis)) x)) (cons x (moveXleft* x (cdr lis))))
+      ((equal? (car lis) x) (cdr lis)) ; go into list! check if the lists inside contain x first
+      ((and (xstart x (cdr lis)) (list? (car lis))) (cons (myappend (car lis) (cons x '())) (moveXleft* x (cdr lis))))
+      ((and (not (null? (cdr lis))) (equal? (car (cdr lis)) x)) (cons x (cons (car lis) (cdr (cdr lis)))))
+      ((xstart x (cdr lis)) (myappend (cons (car lis) (cons x '())) (moveXleft* x (cdr lis))))
       ((list? (car lis)) (cons (moveXleft* x (car lis)) (moveXleft* x (cdr lis))))
-      (else (cons (car lis) (moveXleft* x (cdr lis)))))))
+      (else (cons (car lis) (moveXleft* x (cdr lis))))))) 

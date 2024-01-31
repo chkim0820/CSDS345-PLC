@@ -79,21 +79,23 @@
       (else (cons (car lis) (flattenN N (cdr lis))))))) ; not a list
 
 ;; 8) takes two vectors; returns outerproduct of vectors
-(define outerproduct ; REVIEW
+(define outerproduct
   (lambda (vec1 vec2)
     (cond
       ((or (null? vec1) (null? vec2)) '())
-      ((and (pair? (cdr vec2)) (not (pair? (cdr (cdr vec2)))))
+      ((and (pair? (cdr vec2)) (not (pair? (cdr (cdr vec2))))) ; cdr is last element of lis2
        (cons (outerproduct vec1 (cons (car vec2) '())) (cons (outerproduct vec1 (cdr vec2)) '())))
-      ((pair? (cdr vec2)) (cons (outerproduct vec1 (cons (car vec2) '())) (outerproduct vec1 (cdr vec2))))
-      (else (cons (* (car vec1) (car vec2)) (outerproduct (cdr vec1) vec2))))))
+      ((pair? (cdr vec2)) ; cdr of vec2 is not the last in vec2; don't add the extra ()
+       (cons (outerproduct vec1 (cons (car vec2) '())) (outerproduct vec1 (cdr vec2))))
+      (else ; car of vec2 is the only element; do the multiplication
+       (cons (* (car vec1) (car vec2)) (outerproduct (cdr vec1) vec2))))))
 
 ;; 9) takes a list; returns the largest number in the list
 (define maxvalue*
   (lambda (lis)
     (cond
       ((null? lis) 'novalue)
-      ((list? (car lis)) ; if currently a list
+      ((list? (car lis)) ; if currently a list; go through its sublists
        (maxvalue* (cons (maxvalue* (car lis)) (cdr lis)))) ; add sublists' biggest to cdr
       ((not (number? (car lis))) (maxvalue* (cdr lis))) ; currently not a number; ignore
       ((not (number? (maxvalue* (cdr lis)))) (car lis)) ; (car lis) is a number

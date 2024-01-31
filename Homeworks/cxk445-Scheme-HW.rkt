@@ -118,33 +118,32 @@
     (cond
       ((null? lis) '())
       ((equal? (car lis) x) (cdr lis)) ; car is x; get rid of it
-      ((and (and (pair? (car lis)) (pair? (car (car lis)))) ; special case; ((X )) is car
+      ((and (and (pair? (car lis)) (pair? (car (car lis)))) ; special case) ((X )) is car
             (equal? x (car (car (car lis)))))
-       (cons (cons x (cons (moveXleft* x (car (car lis))) (cdr (car lis)))) (cdr lis))) ; to (X (
+       (cons (cons x (cons (moveXleft* x (car (car lis))) (cdr (car lis)))) (cdr lis)))
       ((and (pair? (car lis)) (search x (car lis))) ; In car's sublist, there's an x
-       (cons (moveXleft* x (car lis)) (cdr lis))) ; recurse on car & add everything after
+       (cons (moveXleft* x (car lis)) (cdr lis)))
       ((and (and (pair? (car lis)) (pair? (cdr lis))) (equal? x (car (cdr lis)))) ; 1) bring x in
-       (cons (myappend (car lis) (cons x '())) (moveXleft* x (cdr lis)))) ; add x at the end of current list
-      ((and (not (list? (car lis))) (and (pair? (cdr lis)) (equal? x (car (cdr lis))))) ; 2) car/cdr not list & cdr==x
-       (cons x (cons (car lis) (moveXleft* x (cdr lis))))) ; swap x and car
+       (cons (myappend (car lis) (cons x '())) (moveXleft* x (cdr lis))))
+      ((and (not (list? (car lis))) ; 2) car/cdr not list & cdr==x
+            (and (pair? (cdr lis)) (equal? x (car (cdr lis)))))
+       (cons x (cons (car lis) (moveXleft* x (cdr lis)))))
       ((and (and (pair? (cdr lis)) (pair? (car (cdr lis)))) ; 3) next is a list
-            (equal? x (car (car (cdr lis))))) ; the list starts with x
-       (cons (car lis) (cons x (moveXleft* x (cdr lis))))) ; add x after car
+            (equal? x (car (car (cdr lis)))))
+       (cons (car lis) (cons x (moveXleft* x (cdr lis)))))
       (else (cons (car lis) (moveXleft* x (cdr lis))))))) ; Else, just keep recursing
 
-
 ;;;; **********************************************************************
-;;;; Outline) broadly 3 categories for moveXleft*
-;;;; Still return '() when lis null
-;;;; When x encountered, get rid of it
-;;;; Use a helper function to see if a car sublist contains x
-;;;;     => only first occurrence removed; recurse on that & append cdr
-;;;; 1) out => in (currently a list & bring x in); create a new list & append? (cdr is x & car is list)
-;;;; 2) stays in/out; cdr is x & car is not a list; no list involved => do similar to moveXleft
-;;;; 3) in => out; have to look into list; add to after car (myappend)
-;;;;    Special cases: (((x)) vs. (x)); 1st sublist with x in front
-;;;;        Look exactly if a sublist starts with x; just another if statement
-;;;;            if car is a list & its first element is a sublist with x in the front,
-;;;;            make the first element x & add the sublist next
-;;;; If nothing, just keep recursing
+;;;;  Note) moveXleft*
+;;;;  Return '() when lis null
+;;;;  When x encountered, get rid of it & return cdr as it is
+;;;;  Special case) ((x)) where 1st sublist with x in front
+;;;;    if car is a list & its first element is a sublist with x in the front,
+;;;;    make the first element x & add the sublist next
+;;;;  Else, if car is a list, use a helper function to see if a car list contains x
+;;;;    => only first occurrence to be removed, so recurse on car & append cdr
+;;;;  1) out => in (currently a list & bring x in)
+;;;;  2) stays in/out; cdr is x & car is not a list; no list involved
+;;;;  3) in => out; cdr is a list that starts with x 
+;;;;  If none of the above, just keep recursing
 ;;;; ***********************************************************************

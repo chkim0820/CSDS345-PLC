@@ -118,13 +118,17 @@
     (cond
       ((null? lis) '())
       ((equal? (car lis) x) (cdr lis)) ; car is x; get rid of it
+      ((and (and (pair? (car lis)) (pair? (car (car lis)))) ; special case; ((X )) is car
+            (equal? x (car (car (car lis)))))
+       (cons (cons x (cons (moveXleft* x (car (car lis))) (cdr (car lis)))) (cdr lis))) ; to (X (
       ((and (pair? (car lis)) (search x (car lis))) ; In car's sublist, there's an x
-       (cons (moveXleft* x (car lis)) (cdr lis)))
-      ((and (pair? (car lis)) (equal? x (car (cdr lis)))) ; currently a list & bring x in
+       (cons (moveXleft* x (car lis)) (cdr lis))) ; recurse on car & add everything after
+      ((and (and (pair? (car lis)) (pair? (cdr lis))) (equal? x (car (cdr lis)))) ; 1) bring x in
        (cons (myappend (car lis) (cons x '())) (moveXleft* x (cdr lis)))) ; add x at the end of current list
-      ((and (not (list? (car lis))) (equal? x (cdr (car lis)))) ; car/cdr not list & cdr==x
+      ((and (not (list? (car lis))) (and (pair? (cdr lis)) (equal? x (car (cdr lis))))) ; 2) car/cdr not list & cdr==x
        (cons x (cons (car lis) (moveXleft* x (cdr lis))))) ; swap x and car
-      ((and (pair? (cdr lis)) (equal? x (car (car (cdr lis))))) ; cdr is a list containing x first
+      ((and (and (pair? (cdr lis)) (pair? (car (cdr lis)))) ; 3) next is a list
+            (equal? x (car (car (cdr lis))))) ; the list starts with x
        (cons (car lis) (cons x (moveXleft* x (cdr lis))))) ; add x after car
       (else (cons (car lis) (moveXleft* x (cdr lis))))))) ; Else, just keep recursing
 
@@ -144,23 +148,3 @@
 ;;;;            make the first element x & add the sublist next
 ;;;; If nothing, just keep recursing
 ;;;; ***********************************************************************
-
-
-
-
-;(define moveXleft* ; works for all X, not just first
-;  (lambda (x lis) 
-;    (cond
-;      ((null? lis) '())
-;      ((equal? (car lis) x) (cdr lis))
-;      ;; List containing x
-;      ((and (list? (car lis)) (search x (car lis))) (cons (moveXleft* x (car lis)) (cdr lis)))
-;      ;; Current element is list & next is x
-;      ((and (list? (car lis)) (and (pair? (cdr lis)) (equal? x (car (cdr lis)))))
-;       (cons (myappend (moveXleft* x (car lis)) (cons x '())) (moveXleft* x (cdr lis))))
-;      ;; Current atom & next is x
-;      ((and (pair? (cdr lis)) (equal? (car (cdr lis)) x)) (cons x (cons (car lis) (cdr (cdr lis)))))
-;      ;; x first in the list
-;      ((and (and (pair? (cdr lis)) (pair? (car (cdr lis)))) (equal? (car (car (cdr lis))) x))
-;       (myappend (cons (car lis) (cons x '())) (moveXleft* x (cdr lis)))) 
-;      (else (cons (car lis) (moveXleft* x (cdr lis)))))))

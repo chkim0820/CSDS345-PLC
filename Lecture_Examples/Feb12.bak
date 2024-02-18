@@ -1,0 +1,10 @@
+#lang racket
+
+;;(define Minteger
+;;  (lambda (lis)
+;;    (cond
+;;      ((null? lis) '())
+;;      ((or (equal? (car (cdr lis)) '*) (equal? (car (cdr lis)) '/)) ((car (cdr lis)) (car lis) (Minteger (cdr lis))))
+;;      ((or (equal?)))
+;;      )))
+

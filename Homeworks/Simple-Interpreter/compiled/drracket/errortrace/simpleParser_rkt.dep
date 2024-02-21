@@ -1,0 +1,1 @@
+("8.11.1" ta6nt ("e0e83ce077a7725b80d5d28c796e973faa4fa1dd" . "3ccfd02bfb60f092cf75cc249b7941f03b450f81") #"C:\\Users\\chkm823\\Documents\\GitHub\\CSDS345-PLC\\Homeworks\\Simple-Interpreter\\lex.rkt" (collects #"drracket" #"private" #"drracket-errortrace-key.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))

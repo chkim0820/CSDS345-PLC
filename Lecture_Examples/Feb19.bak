@@ -1,0 +1,17 @@
+#lang racket
+
+; Examples where we generalize the return
+
+; split: splits a list into two lists; one with the even indeces and one with odd
+; (split '(a b c d e)) => '((a c e) (b d))
+(define split-orig
+  (lambda (lis)
+    (if (null? lis)
+        '(() ())
+        (cons (cons (car lis) (car (cdr (split-orig (cdr lis))))) (cons (car (split-orig (cdr lis))) '())))))
+
+(define split-cps
+  (lambda (lis return)
+    (if (null? lis)
+        (return '() '())
+        (split-cps (cdr lis) (lambda (v1 v2))))))

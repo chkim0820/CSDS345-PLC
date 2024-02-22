@@ -86,7 +86,9 @@
     (cond
       ((empty-state state)          state) ; state is empty; return original state
       ((equal? (get-var state) var) (next-state state)) ; found var; remove binding
-      ((addbinding (get-var state)  (get-val state) (removebinding var (next-state state))))))) ; move onto the next
+      (else                         (addbinding (get-var state) ; move onto the next
+                                                (get-val state)
+                                                (removebinding var (next-state state)))))))
 
 
 ; updatebinding function
@@ -128,10 +130,12 @@
       ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
       ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) state)))
       ((eq? (operator boolexp) '==) (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
+      ((eq? (operator boolexp) '!=) (not (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state))))
       ((eq? (operator boolexp) '<)  (<   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
       ((eq? (operator boolexp) '>)  (>   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
       ((eq? (operator boolexp) '<=) (<=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
       ((eq? (operator boolexp) '>=) (>=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state))))))
+
 
 
 ; determines if an expression is an intexp, i.e. does it start with an arithmetic operator?
@@ -150,6 +154,7 @@
         (eq? (operator exp) '||)
         (eq? (operator exp) '!)
         (eq? (operator exp) '==)
+        (eq? (operator exp) '!=)
         (eq? (operator exp) '<)
         (eq? (operator exp) '>)
         (eq? (operator exp) '<=)
@@ -195,6 +200,7 @@
       ((equal? oper '||) #t)
       ((equal? oper '! ) #t)
       ((equal? oper '==) #t)
+      ((equal? oper '!=) #t)
       ((equal? oper '< ) #t)
       ((equal? oper '> ) #t)
       ((equal? oper '<=) #t)
@@ -237,15 +243,16 @@
   (lambda (stmt state)
     (cond
       ((not (exp-arg stmt)) (addbinding (arg1 stmt) 'novalue state))
-      ((parse-asgn (arg1 stmt) (arg2 stmt) (addbinding (arg1 stmt) 'novalue state))))))
+      (else (parse-asgn (arg1 stmt) (arg2 stmt) (addbinding (arg1 stmt) 'novalue state))))))
 
 ; parse-if parses if statements
 (define parse-if
   (lambda (stmt state)
     (cond
-      ((m-bool (cond-stmt stmt) state) (m-state (then-stmt stmt) state))
-      ((not (equal? 'no-else (else-stmt stmt))) (m-state (else-stmt stmt) state))
-      (state))))
+      ((m-bool (cond-stmt stmt) state) (m-state (then-stmt stmt) state)) ; conditional stmt true
+      ((equal? 'no-else (else-stmt stmt)) state) ; conditional false but no if statement; no action
+      ((nested-if (else-stmt stmt)) (parse-if (else-stmt stmt) state)) ; nested if statements
+      (else (m-state (else-stmt stmt) state))))) ; no nested if statements
 
 ; Helper functions for if statements to help with abstraction
 (define cond-stmt (lambda (stmt) (car (cdr stmt)))); conditional statement
@@ -253,18 +260,24 @@
 (define else-stmt (lambda (stmt) ; optional else statement
                     (if (null? (cdr (cdr (cdr stmt)))) 'no-else
                         (car (cdr (cdr (cdr stmt)))))))
-
-
-; abstractions for while statement
-(define condition cadr)
-(define statement caddr)
+; Takes in else-stmt and determine if there's a nested if statement
+(define nested-if
+  (lambda (else-stmt)
+    (cond
+      ((null? else-stmt) 'no-else)
+      ((equal? 'if (car else-stmt)) #t)
+      (else #f))))
 
 ; parses a while statement
 (define parse-while
   (lambda (stmt state)
-    (if (m-bool (condition stmt) state)
-        (m-state stmt (m-state (statement stmt) state))
-        state)))
+    (cond
+      ((m-bool (condition stmt) state) (parse-while stmt (m-state (statement stmt) state))) ; cond true
+      (else state))))
+
+; abstractions for while statement
+(define condition cadr)
+(define statement caddr)
 
 ; Parses a return statement
 (define parse-return

@@ -90,7 +90,6 @@
                                                 (get-val state)
                                                 (removebinding var (next-state state)))))))
 
-
 ; updatebinding function
 ; updatebinding adds a binding if it does not already exist; if a binding exists, it updates.
 (define updatebinding
@@ -120,12 +119,13 @@
 ; m-bool takes a syntax rule and a state and produces a true / false value (or an error condition).
 ; this implementation of m-bool returns #t or #f
 ; m-bool takes a syntax rule and a state and produces a true / false value (or an error condition).
-(define m-bool
+(define m-bool ; FIX; check if left or right operand is assignment
   (lambda (boolexp state)
     (cond
       ((number? boolexp)             boolexp)
       ((symbol? boolexp)            (lookup boolexp state))
       ((intexp? boolexp)            (m-int boolexp state)) ; handle intexps nested in boolean expressions
+      ((eq?)) ;FIXXXX
       ((eq? (operator boolexp) '&&) (and (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
       ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
       ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) state)))
@@ -135,8 +135,6 @@
       ((eq? (operator boolexp) '>)  (>   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
       ((eq? (operator boolexp) '<=) (<=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
       ((eq? (operator boolexp) '>=) (>=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state))))))
-
-
 
 ; determines if an expression is an intexp, i.e. does it start with an arithmetic operator?
 (define intexp?
@@ -161,7 +159,7 @@
         (eq? (operator exp) '>=))))
         
 ; m-int takes in an expression and a state and returns a numeric value
-(define m-int
+(define m-int ; FIX; fix in case either is assignment
   (lambda (intexp state)
     (cond
       ((number? intexp)           intexp)
@@ -190,7 +188,11 @@
       ((eq? (operator stmt) 'var)    (parse-decl stmt state))
       ((eq? (operator stmt) 'while)  (parse-while stmt state))
       ((eq? (operator stmt) 'return) (parse-return stmt state))
-      ((eq? (operator stmt) 'if)     (parse-if stmt state)))))
+      ((eq? (operator stmt) 'if)     (parse-if stmt state))
+      (else (m-state (roperand stmt) (m-state (loperand stmt) state))))))
+      ; FIX) Else, it's m-int or m-bool with args to update
+      ; update appropriately (left -> right); can be both
+      ; redirect the appropriate terms to assignments
 
 ; check if boolean operation is done (returns bool)
 (define bool-check
@@ -249,10 +251,13 @@
 (define parse-if
   (lambda (stmt state)
     (cond
-      ((m-bool (cond-stmt stmt) state) (m-state (then-stmt stmt) state)) ; conditional stmt true
-      ((equal? 'no-else (else-stmt stmt)) state) ; conditional false but no if statement; no action
-      ((nested-if (else-stmt stmt)) (parse-if (else-stmt stmt) state)) ; nested if statements
-      (else (m-state (else-stmt stmt) state))))) ; no nested if statements
+      ((m-bool (cond-stmt stmt) state)    (m-state (then-stmt stmt)  ; conditional statement is true
+                                                   (m-state (cond-stmt stmt) state)))
+      ((equal? 'no-else (else-stmt stmt)) (m-state (cond-stmt stmt) state)) ; conditional false and no else; no action
+      ((nested-if (else-stmt stmt))       (parse-if (else-stmt stmt) ; nested if statements
+                                                    (m-state (cond-stmt stmt) state)))
+      (else                               (m-state (else-stmt stmt)  ; no nested if statements
+                                                   (m-state (cond-stmt stmt) state))))))
 
 ; Helper functions for if statements to help with abstraction
 (define cond-stmt (lambda (stmt) (car (cdr stmt)))); conditional statement
@@ -272,8 +277,9 @@
 (define parse-while
   (lambda (stmt state)
     (cond
-      ((m-bool (condition stmt) state) (parse-while stmt (m-state (statement stmt) state))) ; cond true
-      (else state))))
+      ((m-bool (condition stmt) state) ; condition is true; continue looping
+       (parse-while stmt (m-state (statement stmt) (m-state (condition stmt) state))))
+      (else (m-state (condition stmt) state))))) ; condition is false; stop loop
 
 ; abstractions for while statement
 (define condition cadr)

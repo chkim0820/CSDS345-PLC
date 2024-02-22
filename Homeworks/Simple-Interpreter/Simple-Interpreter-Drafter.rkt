@@ -30,7 +30,7 @@
 
 (define interpret
   (lambda (filename)
-    (parse-prog (parser filename) '(()())))) ; the initial state is a list with 2 sublists
+    (parse-prog (parser filename) '((true false) (#t #f))))) ; the initial state is a list with 2 sublists
                                              ; because there are no variables or values yet.
 
 ; parse-prog takes a list representing a syntax tree and returns the proper value (or error).
@@ -63,7 +63,7 @@
 (define get-vars    (lambda (state) (car state))) ; all vars
 (define get-vals    (lambda (state) (cadr state))) ; all vals
 (define next-state  (lambda (state) (if (empty-state state) state (list (cdr (car state)) (cdr (cadr state)))))) ; next state
-(define empty-state (lambda (state) (if (null? (car state)) #T #F))); return whether state is empty or not
+(define empty-state (lambda (state) (if (null? (car state)) #t #f))); return whether state is empty or not
 (define get-var     (lambda (state) (car (get-vars state)))) ; get first var; assume null state checked beforehand
 (define get-val     (lambda (state) (car (get-vals state)))) ; get first val; assume null state checked beforehand
 
@@ -71,17 +71,9 @@
 (define lookup
   (lambda (var state)
     (cond
-      ((empty-state state)          'novalue) ; var not declared yet; no more var
+      ((empty-state state)          'not-initialized) ; var not initialized yet; no more var
       ((equal? (get-var state) var) (get-val state)) ; returns value or 'novalue depending on assignment status
       (else                         (lookup var (next-state state)))))) ; not equal; recurse down further
-
-; lookup? checks if a variable exists
-(define lookup?
-  (lambda (var state)
-    (cond
-      ((null? state) #f) ; var not in state
-      ((eq?          (get-var state) var) #t) ; var found; return true
-      (else          (lookup? var (next-state state)))))) ; continue to recurse down
 
 ; addbinding function
 (define addbinding
@@ -135,11 +127,12 @@
       ((eq? (operator boolexp) '&&) (and (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
       ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
       ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) state)))
-      ((eq? (operator boolexp) '==) (eq? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
+      ((eq? (operator boolexp) '==) (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
       ((eq? (operator boolexp) '<)  (<   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
       ((eq? (operator boolexp) '>)  (>   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
       ((eq? (operator boolexp) '<=) (<=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
-      ((eq? (operator boolexp) '>=) (>=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state))) )))
+      ((eq? (operator boolexp) '>=) (>=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state))))))
+
 
 ; determines if an expression is an intexp, i.e. does it start with an arithmetic operator?
 (define intexp?
@@ -169,10 +162,14 @@
       ((number? intexp)           intexp)
       ((symbol? intexp)           (lookup intexp state)) ; lookup variable value
       ((eq? (operator intexp) '+) (+ (m-int (loperand intexp) state) (m-int (roperand intexp) state)))
+      ((and (eq? (operator intexp) '-) (unary? intexp)) (* '-1 (m-int (loperand intexp) state)))
       ((eq? (operator intexp) '-) (- (m-int (loperand intexp) state) (m-int (roperand intexp) state)))
       ((eq? (operator intexp) '*) (* (m-int (loperand intexp) state) (m-int (roperand intexp) state)))
       ((eq? (operator intexp) '/) (quotient (m-int (loperand intexp) state) (m-int (roperand intexp) state)))
       ((eq? (operator intexp) '%) (remainder (m-int (loperand intexp) state) (m-int (roperand intexp) state))))))
+ 
+; Helper function for checking whether the 
+(define unary? (lambda (exp) (if (null? (cdr (cdr exp))) #t #f)))
 
 ; state should call parse-decl, parse-asgn, etc based on which operation is necessary (i think?)
 ; and then return the changed state
@@ -220,10 +217,11 @@
 (define parse-asgn ; assuming input names valid
   (lambda (var expr state)
     (cond
-      ((not (lookup? var state))           'error) ; var not declared yet
-      ((or (number? expr) (boolean? expr)) (addbinding var expr (removebinding var state))) ; assigning int or boolean
+      ((equal? (lookup var state) 'not-initialized) (error "Variable not declared yet")) ; var not declared yet
+      ((number? expr) (addbinding var expr (removebinding var state))) ; assigning int
+      ((boolean? expr) (addbinding var (bool-cvt expr) (removebinding var state))) ; assigning bool
       ((not (list? expr))                  (addbinding var (lookup expr state) (removebinding var state))) ; variable
-      ((bool-check (operator expr))        (addbinding var (m-bool expr state) (removebinding var state))) ; bool expr
+      ((bool-check (operator expr))        (addbinding var (bool-cvt (m-bool expr state)) (removebinding var state))) ; bool expr
       ((int-check (operator expr))         (addbinding var (m-int expr state) (removebinding var state)))  ; num. expr
       (else                                (addbinding var ; handle assignment within assignment
                                                        (lookup (arg1 expr) (parse-asgn (arg1 expr) (arg2 expr) state))
@@ -231,6 +229,8 @@
 
 ; For declaration; true if no assignment with declaration, else false
 (define exp-arg (lambda (stmt) (if (null? (cdr (cdr stmt))) #f #t)))
+; For converting boolean (#t/f) to true or false
+(define bool-cvt (lambda (expr) (cond ((eq? #t expr) 'true) ((eq? #f expr) 'false) (expr))))
 
 ; parse-decl should take a declaration statement and add it to the state with atom 'novalue to show it hasnt been given a value
 (define parse-decl
@@ -239,34 +239,21 @@
       ((not (exp-arg stmt)) (addbinding (arg1 stmt) 'novalue state))
       ((parse-asgn (arg1 stmt) (arg2 stmt) (addbinding (arg1 stmt) 'novalue state))))))
 
-; takes in a statement and a state, returns changed state if the condition is true
-(define parse-if 
+; parse-if parses if statements
+(define parse-if
   (lambda (stmt state)
     (cond
-      ; if the condition is true, execute the then-statement
-      ((eq? #t (m-bool (if-cond stmt) state)) (m-state (then-stmt stmt) state))
-      ; if the condition is false and there is an else-statement, execute it
-      ((eq? #t (has-else stmt)) (m-state (else-stmt stmt) state))
-      ; if the condition is false and there is no else-statement, do nothing
-      (else state))))
+      ((m-bool (cond-stmt stmt) state) (m-state (then-stmt stmt) state))
+      ((not (equal? 'no-else (else-stmt stmt))) (m-state (else-stmt stmt) state))
+      (state))))
 
-; abstraction for parse-if:
-(define if-cond
-  (lambda (stmt)
-    (car (cdr stmt))))
+; Helper functions for if statements to help with abstraction
+(define cond-stmt (lambda (stmt) (car (cdr stmt)))); conditional statement
+(define then-stmt (lambda (stmt) (car (cdr (cdr stmt))))) ; then statement
+(define else-stmt (lambda (stmt) ; optional else statement
+                    (if (null? (cdr (cdr (cdr stmt)))) 'no-else
+                        (car (cdr (cdr (cdr stmt)))))))
 
-(define then-stmt
-  (lambda (stmt)
-    (car (cdr (cdr stmt)))))
-
-(define else-stmt
-  (lambda (stmt)
-    (car (cdr (cdr (cdr stmt))))))
-
-; check if else statement exists
-(define has-else
-  (lambda (stmt)
-    (pair? (cdr (cdr (cdr stmt))))))
 
 ; abstractions for while statement
 (define condition cadr)
@@ -284,15 +271,5 @@
   (lambda (stmt state)
     (parse-asgn 'return (return-val stmt) (addbinding 'return 'novalue state))))
 
-;(define parse-return
-;  (lambda (stmt state)
-;    (cond
-;      ((or (number? (return-val stmt)) (boolean? (return-val stmt))) (addbinding 'return (return-val stmt) (removebinding 'return state))) ; int or boolean
-;      ((not (list? (return-val stmt))) (addbinding 'return (lookup (return-val stmt) state) (removebinding 'return state))) ; variable
-;      ((bool-check (operator (return-val stmt))) (addbinding 'return (m-bool (return-val stmt) state) (removebinding 'return state))) ; bool op
-;      ((int-check (operator (return-val stmt))) (addbinding 'return (m-int (return-val stmt) state) (removebinding 'return state)))
-;      (state)))) ; num oper
-
-(define return-val
-  (lambda (stmt)
-    (car (cdr stmt))))
+; Helper function for parse-return; return the expression or value to be returned
+(define return-val (lambda (stmt) (car (cdr stmt))))

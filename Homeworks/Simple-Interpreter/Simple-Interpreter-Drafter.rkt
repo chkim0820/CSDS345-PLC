@@ -31,7 +31,7 @@
 (define interpret
   (lambda (filename)
     (parse-prog (parser filename) '((true false) (#t #f))))) ; the initial state is a list with 2 sublists
-                                             ; because there are no variables or values yet.
+                                                             ; true or false stored as default
 
 ; parse-prog takes a list representing a syntax tree and returns the proper value (or error).
 ; A syntax tree is represented by a list where each sublist corresponds to a statement:
@@ -125,16 +125,24 @@
       ((number? boolexp)             boolexp)
       ((symbol? boolexp)            (lookup boolexp state))
       ((intexp? boolexp)            (m-int boolexp state)) ; handle intexps nested in boolean expressions
-      ((eq?)) ;FIXXXX
-      ((eq? (operator boolexp) '&&) (and (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
-      ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
-      ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) state)))
-      ((eq? (operator boolexp) '==) (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state)))
-      ((eq? (operator boolexp) '!=) (not (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) state))))
-      ((eq? (operator boolexp) '<)  (<   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
-      ((eq? (operator boolexp) '>)  (>   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
-      ((eq? (operator boolexp) '<=) (<=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state)))
-      ((eq? (operator boolexp) '>=) (>=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) state))))))
+      ((or (is-asgn (loperand boolexp)) ; left or right operand is an assignment stmt
+           (is-asgn (roperand boolexp)))
+       (m-bool (new-stmt (operator boolexp) (asgn-var (loperand boolexp)) (asgn-var (roperand boolexp)))
+               (m-state (roperand boolexp) (m-state (loperand boolexp) state))))
+      ((eq? (operator boolexp) '&&) (and (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state))))
+      ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state))))
+      ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) (m-state (arg1 boolexp) state))))
+      ((eq? (operator boolexp) '==) (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state))))
+      ((eq? (operator boolexp) '!=) (not (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state)))))
+      ((eq? (operator boolexp) '<)  (<   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state))))
+      ((eq? (operator boolexp) '>)  (>   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state))))
+      ((eq? (operator boolexp) '<=) (<=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state))))
+      ((eq? (operator boolexp) '>=) (>=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state)))))))
+
+(define asgn-var (lambda (stmt) (if (not (list? stmt)) stmt (arg1 stmt)))) ; returns the var of asgn
+(define new-stmt (lambda (oper left right) (list oper left right))) ; new statement w/o assignments
+(define is-asgn (lambda (stmt) (if (and (list? stmt) (eq? (operator stmt) '=)) #t #f))) ; returns whether stmt is assignment or not
+ 
 
 ; determines if an expression is an intexp, i.e. does it start with an arithmetic operator?
 (define intexp?
@@ -164,12 +172,16 @@
     (cond
       ((number? intexp)           intexp)
       ((symbol? intexp)           (lookup intexp state)) ; lookup variable value
-      ((eq? (operator intexp) '+) (+ (m-int (loperand intexp) state) (m-int (roperand intexp) state)))
-      ((and (eq? (operator intexp) '-) (unary? intexp)) (* '-1 (m-int (loperand intexp) state)))
-      ((eq? (operator intexp) '-) (- (m-int (loperand intexp) state) (m-int (roperand intexp) state)))
-      ((eq? (operator intexp) '*) (* (m-int (loperand intexp) state) (m-int (roperand intexp) state)))
-      ((eq? (operator intexp) '/) (quotient (m-int (loperand intexp) state) (m-int (roperand intexp) state)))
-      ((eq? (operator intexp) '%) (remainder (m-int (loperand intexp) state) (m-int (roperand intexp) state))))))
+      ((or (is-asgn (loperand intexp)) ; left or right operand is an assignment stmt
+           (is-asgn (roperand intexp)))
+       (m-int (new-stmt (operator intexp) (asgn-var (loperand intexp)) (asgn-var (roperand intexp)))
+               (m-state (roperand intexp) (m-state (loperand intexp) state))))
+      ((eq? (operator intexp) '+) (+ (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
+      ((and (eq? (operator intexp) '-) (unary? intexp)) (* '-1 (m-int (loperand intexp) (m-state (loperand intexp) state))))
+      ((eq? (operator intexp) '-) (- (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
+      ((eq? (operator intexp) '*) (* (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
+      ((eq? (operator intexp) '/) (quotient (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
+      ((eq? (operator intexp) '%) (remainder (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state)))))))
  
 ; Helper function for checking whether the 
 (define unary? (lambda (exp) (if (null? (cdr (cdr exp))) #t #f)))
@@ -184,6 +196,7 @@
 (define m-state
   (lambda (stmt state)
     (cond
+      ((not (list? stmt))            state)
       ((eq? (operator stmt) '=)      (parse-asgn (arg1 stmt) (arg2 stmt) state))
       ((eq? (operator stmt) 'var)    (parse-decl stmt state))
       ((eq? (operator stmt) 'while)  (parse-while stmt state))

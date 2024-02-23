@@ -126,9 +126,9 @@
       ((symbol? boolexp)            (lookup boolexp state))
       ((intexp? boolexp)            (m-int boolexp state)) ; handle intexps nested in boolean expressions
       ((or (is-asgn (loperand boolexp)) ; left or right operand is an assignment stmt
-           (is-asgn (roperand boolexp)))
-       (m-bool (new-stmt (operator boolexp) (asgn-var (loperand boolexp)) (asgn-var (roperand boolexp)))
-               (m-state (roperand boolexp) (m-state (loperand boolexp) state))))
+           (and (roperand? boolexp) (is-asgn (roperand boolexp))))
+       (m-int (new-stmt (operator boolexp) (lookup (asgn-var (loperand boolexp)) (m-state (loperand boolexp) state))
+                        (lookup (asgn-var (roperand boolexp)) (m-state (roperand boolexp) (m-state (loperand boolexp) state)))) state))
       ((eq? (operator boolexp) '&&) (and (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state))))
       ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state))))
       ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) (m-state (arg1 boolexp) state))))
@@ -165,6 +165,8 @@
         (eq? (operator exp) '>)
         (eq? (operator exp) '<=)
         (eq? (operator exp) '>=))))
+
+(define roperand? (lambda (stmt) (if (null? (cddr stmt)) #f #t))) ; true if no 2nd operand
         
 ; m-int takes in an expression and a state and returns a numeric value
 (define m-int ; FIX; fix in case either is assignment
@@ -173,11 +175,11 @@
       ((number? intexp)           intexp)
       ((symbol? intexp)           (lookup intexp state)) ; lookup variable value
       ((or (is-asgn (loperand intexp)) ; left or right operand is an assignment stmt
-           (is-asgn (roperand intexp)))
-       (m-int (new-stmt (operator intexp) (asgn-var (loperand intexp)) (asgn-var (roperand intexp)))
-               (m-state (roperand intexp) (m-state (loperand intexp) state))))
-      ((eq? (operator intexp) '+) (+ (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
+           (and (roperand? intexp) (is-asgn (roperand intexp))))
+       (m-int (new-stmt (operator intexp) (lookup (asgn-var (loperand intexp)) (m-state (loperand intexp) state))
+                        (lookup (asgn-var (roperand intexp)) (m-state (roperand intexp) (m-state (loperand intexp) state)))) state))
       ((and (eq? (operator intexp) '-) (unary? intexp)) (* '-1 (m-int (loperand intexp) (m-state (loperand intexp) state))))
+      ((eq? (operator intexp) '+) (+ (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
       ((eq? (operator intexp) '-) (- (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
       ((eq? (operator intexp) '*) (* (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
       ((eq? (operator intexp) '/) (quotient (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
@@ -191,7 +193,7 @@
 ; Also need to implement: 
 ; looking up a binding, creating a new binding, and updating an existing binding
 
-; proposing to change 'state' to be called m-state, assuming below functions to be 
+
 ; for changing state 
 (define m-state
   (lambda (stmt state)
@@ -202,8 +204,9 @@
       ((eq? (operator stmt) 'while)  (parse-while stmt state))
       ((eq? (operator stmt) 'return) (parse-return stmt state))
       ((eq? (operator stmt) 'if)     (parse-if stmt state))
+      ((not (roperand? stmt)) (m-state (loperand stmt) state)) ; no right operand
       (else (m-state (roperand stmt) (m-state (loperand stmt) state))))))
-      ; FIX) Else, it's m-int or m-bool with args to update
+      ; Else, it's m-int or m-bool with args to update
       ; update appropriately (left -> right); can be both
       ; redirect the appropriate terms to assignments
 
@@ -239,16 +242,18 @@
   (lambda (var expr state)
     (cond
       ((equal? (lookup var state) 'not-initialized) (error "Variable not declared yet")) ; var not declared yet
-      ((number? expr) (addbinding var expr (removebinding var state))) ; assigning int
-      ((boolean? expr) (addbinding var (bool-cvt expr) (removebinding var state))) ; assigning bool
-      ((not (list? expr))                  (addbinding var (lookup expr state) (removebinding var state))) ; variable
-      ((bool-check (operator expr))        (addbinding var (bool-cvt (m-bool expr state)) (removebinding var state))) ; bool expr
-      ((int-check (operator expr))         (addbinding var (m-int expr state) (removebinding var state)))  ; num. expr
-      (else                                (addbinding var ; handle assignment within assignment
+      ((number? expr) (updatebinding var expr state)) ; assigning int
+      ((boolean? expr) (updatebinding var (bool-cvt expr) state)) ; assigning bool
+      ((not (list? expr))                  (updatebinding var (lookup expr state) state)) ; variable
+      ((bool-check (operator expr))        (updatebinding var (bool-cvt (m-bool expr state))
+                                                       (m-state expr state))) ; bool expr
+      ((int-check (operator expr))         (updatebinding var (m-int expr state) ; numerical expression
+                                                       (m-state expr state))) 
+      (else                                (updatebinding var ; handle assignment within assignment
                                                        (lookup (arg1 expr) (parse-asgn (arg1 expr) (arg2 expr) state))
-                                                       (parse-asgn (arg1 expr) (arg2 expr) (removebinding var state)))))))
+                                                       (parse-asgn (arg1 expr) (arg2 expr) state))))))
 
-; For declaration; true if no assignment with declaration, else false
+; For declaration; true if assignment with declaration, else false
 (define exp-arg (lambda (stmt) (if (null? (cdr (cdr stmt))) #f #t)))
 ; For converting boolean (#t/f) to true or false
 (define bool-cvt (lambda (expr) (cond ((eq? #t expr) 'true) ((eq? #f expr) 'false) (expr))))
@@ -257,7 +262,7 @@
 (define parse-decl
   (lambda (stmt state)
     (cond
-      ((not (exp-arg stmt)) (addbinding (arg1 stmt) 'novalue state))
+      ((not (exp-arg stmt)) (addbinding (arg1 stmt) 'novalue state)) ; no assignment
       (else (parse-asgn (arg1 stmt) (arg2 stmt) (addbinding (arg1 stmt) 'novalue state))))))
 
 ; parse-if parses if statements

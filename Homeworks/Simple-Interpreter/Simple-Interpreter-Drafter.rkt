@@ -127,8 +127,7 @@
       ((intexp? boolexp)            (m-int boolexp state)) ; handle intexps nested in boolean expressions
       ((or (is-asgn (loperand boolexp)) ; left or right operand is an assignment stmt
            (and (roperand? boolexp) (is-asgn (roperand boolexp))))
-       (m-int (new-stmt (operator boolexp) (lookup (asgn-var (loperand boolexp)) (m-state (loperand boolexp) state))
-                        (lookup (asgn-var (roperand boolexp)) (m-state (roperand boolexp) (m-state (loperand boolexp) state)))) state))
+       (m-bool (new-stmt boolexp state) (m-state (roperand boolexp) (m-state (loperand boolexp) state))))
       ((eq? (operator boolexp) '&&) (and (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state))))
       ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state))))
       ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) (m-state (arg1 boolexp) state))))
@@ -185,8 +184,9 @@
       ((eq? (operator intexp) '/) (quotient (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state))))
       ((eq? (operator intexp) '%) (remainder (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state)))))))
  
-; Helper function for checking whether the 
+; Helper function for checking whether the expression is unary or not
 (define unary? (lambda (exp) (if (null? (cdr (cdr exp))) #t #f)))
+(define value-get (lambda (stmt state) (if (or (number? stmt) (boolean? stmt)) stmt (lookup stmt state)))) ; return value of input
 
 ; state should call parse-decl, parse-asgn, etc based on which operation is necessary (i think?)
 ; and then return the changed state

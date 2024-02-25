@@ -1,0 +1,19 @@
+#lang racket
+
+; Normal (not tail recursive) factorial function
+(define factorial1
+  (lambda (n)
+    (if (zero? n)
+        1
+        (* n (factorial (- n 1))))))
+
+; Tail recursive; accumulator passing style
+(define factorial-acc
+  (lambda (n a)
+    (if (zero? n)
+        a
+        (factorial-acc (- n 1) (* n a)))))
+
+(define factorial
+  (lambda (n)
+    (factorial-acc n 1)))

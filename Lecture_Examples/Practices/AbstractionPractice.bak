@@ -1,0 +1,11 @@
+#lang racket
+
+(define M_integer
+  (lambda (lis)
+    ))
+
+(define operator (lambda (lis) (cadr lis))) 
+
+(define num1 (lambda (lis) (car lis)))
+
+(define num2 (lambda (lis) (caddr lis)))

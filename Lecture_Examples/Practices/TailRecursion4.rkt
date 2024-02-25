@@ -55,20 +55,14 @@
 (define multiply*-cps
   (lambda (lis return break)
     (cond
-      ((null? lis) (return '()))
+      ((null? lis) (return 1))
+      ((list? (car lis)) (multiply*-cps (car lis) (lambda (v1)
+                                                    (multiply*-cps (cdr lis)
+                                                                   (lambda (v2) (return (* v1 v2))) break)) break))
       ((zero? (car lis)) (break 0))
-      ((number? (car lis)) (multiply*-cps (cdr lis) (lambda (v) (* (car lis) v)) return))
-      ((list? (car lis)) (multiply*-cps (car lis) (lambda (v1) (multiply*-cps (cdr lis) (lambda (v2) (* v1 v2))))))
+      ((number? (car lis)) (multiply*-cps (cdr lis) (lambda (v) (return (* (car lis) v))) break))
       (else (multiply*-cps (cdr lis) return break)))))
 
 (define multiply*
   (lambda (lis)
     (multiply*-cps lis (lambda (v1) v1) (lambda (v2) v2))))
-
-
-
-
-
-
-
-

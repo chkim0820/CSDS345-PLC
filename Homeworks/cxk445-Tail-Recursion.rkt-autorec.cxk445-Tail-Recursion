@@ -84,15 +84,14 @@
 (define replacefirstk*-cps
   (lambda (k lis1 lis2 return next); two return functions? car and cdr
     (cond
-      ((zero? k) (next k lis2 (return lis1)))
-      ((null? lis2) (next k lis2 (return lis1)))
-      ((null? lis1) (next k lis2 (return lis1))) ; no more replacing left to do; FIX
+      ((zero? k) k)
+      ((or (null? lis1) (null? lis2)) (next (return (cdr lis)))) ; no more replacing left to do; FIX
       ((pair? (car lis1)) (replacefirstk*-cps k (car lis1) lis2 (lambda (v) (return (cons v '())))
-                                              (lambda (newK newLis2 prev) (replacefirstk*-cps newK (cdr lis1) newLis2 ; next function
-                                                                                        (lambda (v) (cons prev v)) ; prev is from prev elements
-                                                                                        (lambda (v1 v2 v3) v3))))) ; resetting next func
+                                              (lambda (v1 v2 v3 v4) (replacefirstk*-cps v1 (cdr lis1) v2
+                                                                                        (lambda (v3) (return (cons v3 v4)))
+                                                                                        (lambda (v5) v5)))))
       (else (replacefirstk*-cps (- k 1) (cdr lis1) (cdr lis2) (lambda (v) (return (cons (car lis2) v))) next)))))
- 
+
 (define replacefirstk*
   (lambda (k lis1 lis2)
-    (replacefirstk*-cps k lis1 lis2 (lambda (v) v) (lambda (v1 v2 v3) v3)))) ; next stores the cdr and after sublists
+    (replacefirstk*-cps k lis1 lis2 (lambda (v) v) (lambda (v) v)))) ; next stores the cdr and after sublists

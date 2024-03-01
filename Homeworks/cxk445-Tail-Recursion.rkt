@@ -106,10 +106,55 @@
 
 ;; 8) Using CPS, moveAllXleft* moves every atom x one space to the left
 (define moveAllXleft*-cps
-  (lambda (x lis)
+  (lambda (x lis return)
     (cond
-      ((null? lis) '()))))
+      ((or (null? lis) (not (list? lis))) (return lis)) ; lis not a list or null list
+      ((eq? x (car lis)) (moveAllXleft*-cps x (cdr lis) return)) ; current is x; not appending the current x
+      ((not (pair? (cdr lis))) (moveAllXleft*-cps x (car lis) ; cdr is null list
+                                                  (lambda (v) (return (cons v '())))))
+      ;; next is x
+      ((and (list? (car lis)) (eq? x (cadr lis))) ; next is x & car is a list; ex) () x => (x)
+       (moveAllXleft*-cps x (car lis) (lambda (v1) (moveAllXleft*-cps x (cdr lis) (lambda (v2) (return (cons (myappend v1 (cons x '())) v2))))))) ; FIX
+      ((eq? x (cadr lis)) (moveAllXleft*-cps x (cdr lis) (lambda (v) (return (list x (car lis) v))))) ; next is x & car is not a list 
+
+      ;; next is a list with x in front; car can be a list or not a list
+      ((and (pair? (cadr lis)) (eq? x (car (cadr lis))))
+       (moveAllXleft*-cps x (car lis) (lambda (v1) (moveAllXleft*-cps x (cdr lis)
+                                                                      (lambda (v2) (return (list v1 x v2))))))) ; next is a list with x in front
+      
+      ((pair? (car lis)) (moveAllXleft*-cps x (car lis) ; car is list & next is not (no x)
+                                            (lambda (v1) (moveAllXleft*-cps x (cdr lis) (lambda (v2) (return (cons v1 v2)))))))
+      (else (moveAllXleft*-cps x (cdr lis) (lambda (v) (return (cons (car lis) v)))))))) ; none of the above
 
 (define moveAllXleft*
   (lambda (x lis)
-    (moveAllXleft* x lis (lambda (v) v))))
+    (moveAllXleft*-cps x lis (lambda (v) v))))
+
+; helper) myappend appends two lists together
+(define myappend
+  (lambda (l1 l2)
+    (if (null? l1)
+        l2
+        (cons (car l1 (myappend (cdr l1) l2))))))
+; cases:
+; 1) current is x
+; 2) next is x & curr list
+; 3) next not x & curr list
+; 4) next is x & curr not list
+; 5) next is a list with x in front (curr not list)
+; FIX?: ()(X) => ()X()
+
+;; 9) Using call/cc, collapse-x returns with all atoms between the given atoms collapsed
+(define collapse-x-cc
+  (lambda (x lis break)
+    (cond
+      ((null? lis) '())
+      ((eq? x (car lis)) (break (collapse-x-cc x (cdr lis) break)))
+      (else (cons (car lis) (collapse-x-cc x (cdr lis) break))))))
+
+(define collapse-x
+  (lambda (x lis)
+    (cond
+      ((null? lis) '())
+      ((eq? x (car lis)) (cons (car lis) (call/cc (lambda (break) (collapse-x-cc x (cdr lis) break)))))
+      (else (cons (car lis) (collapse-x x (cdr lis)))))))

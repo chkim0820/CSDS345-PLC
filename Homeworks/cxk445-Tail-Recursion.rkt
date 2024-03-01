@@ -68,49 +68,48 @@
     (rotate*-cps x y z lis (lambda (v) v))))
 
 ;; 6) Using CPS, maxvalue* returns the largest number in the list with sublists
-;(define maxvalue*-cps
-;  (lambda (lis return)
-;    (cond
-;      ((null? lis) (return ))
-;      ((pair? (car lis)) )
-;      (()))))
-
-;(define maxvalue*
-;  (lambda (lis)
-;    (maxvalue*-cps lis (lambda (v) v))))
-
-; 7) Using CPS, replacefirstk* replaces the first k atoms in the first list with first k atoms in second list
-; lis1 is the list that may contain sublists & lis2 is the list of atoms to replace with
-;(define replacefirstk*-cps
-;  (lambda (k lis1 lis2 return next); two return functions? car and cdr
-;    (cond
-;      ((zero? k) (next k lis2 (return lis1)))
-;      ((null? lis2) (next k lis2 (return lis1)))
-;      ((null? lis1) (next k lis2 (return lis1))) ; no more replacing left to do; FIX
-;      ((pair? (car lis1)) (replacefirstk*-cps k (car lis1) lis2 (lambda (v) (return (cons v '())))
-;                                              (lambda (newK newLis2 prev) (replacefirstk*-cps newK (cdr lis1) newLis2 ; next function
-;                                                                                        (lambda (v) (cons prev v)) ; prev is from prev elements
-;                                                                                        (lambda (v1 v2 v3) v3))))) ; resetting next func
-;      (else (replacefirstk*-cps (- k 1) (cdr lis1) (cdr lis2) (lambda (v) (return (cons (car lis2) v))) next)))))
-
-;(define replacefirstk*
-;  (lambda (k lis1 lis2)
-;    (replacefirstk*-cps k lis1 lis2 (lambda (v) v) (lambda (v1 v2 v3) v1)))) ; next stores the cdr and after sublists
-
-
-
-(define replacefirstk*-cps
-  (lambda (k lis1 lis2 return next); two return functions? car and cdr
+(define maxvalue*-cps
+  (lambda (lis return)
     (cond
-      ((zero? k) (return lis1 (next k lis2)))
-      ((null? lis2) (return lis1 (next k lis2)))
-      ((null? lis1) (return lis1 (next k lis2))) ; no more replacing left to do; FIX
-      ((pair? (car lis1)) (replacefirstk*-cps k (car lis1) lis2 (lambda (v1 v2) (return (cons v1 v2) '()))
+      ((null? lis) (return 'novalue))
+      ((list? (car lis)) (maxvalue*-cps (car lis) (lambda (v1) (maxvalue*-cps (cdr lis) (lambda (v2) (return (max v1 v2)))))))
+      (else (maxvalue*-cps (cdr lis) (lambda (v) (return (max (car lis) v))))))))
+
+(define maxvalue*
+  (lambda (lis)
+    (maxvalue*-cps lis (lambda (v) v))))
+
+; Helper function that returns the bigger of the two input numbers
+(define max
+  (lambda (x y)
+    (cond
+      ((eq? y 'novalue) x)
+      ((eq? x 'novalue) y)
+      ((> x y) x)
+      (else y))))
+
+;; 7) Using CPS, replacefirstk* replaces the first k atoms in the first list with first k atoms in second list
+;; lis1 is the list that may contain sublists & lis2 is the list of atoms to replace with
+(define replacefirstk*-cps ; FIX? next not tail recursive?
+  (lambda (k lis1 lis2 return next) ; two return functions
+    (cond
+      ((or (zero? k) (or (null? lis1) (null? lis2))) (return lis1 (next k lis2))) ; no more replacing left to do
+      ((pair? (car lis1)) (replacefirstk*-cps k (car lis1) lis2 (lambda (v1 v2) (return (cons v1 v2) '())) ; car is a list containing atoms
                                               (lambda (newK new-lis2) (replacefirstk*-cps newK (cdr lis1) new-lis2 ; next function
-                                                                                        (lambda (v1 v2) v1) ; prev is from prev elements
-                                                                                        (lambda (v3 v4) v3))))) ; resetting next func
+                                                                                        (lambda (v1 v2) v1)
+                                                                                        (lambda (v3 v4) v3)))))
       (else (replacefirstk*-cps (- k 1) (cdr lis1) (cdr lis2) (lambda (v1 v2) (return (cons (car lis2) v1) v2)) next)))))
 
 (define replacefirstk*
   (lambda (k lis1 lis2)
-    (replacefirstk*-cps k lis1 lis2 (lambda (v1 v2) v1) (lambda (v3 v4) v3)))) ; next stores the cdr and after sublists
+    (replacefirstk*-cps k lis1 lis2 (lambda (v1 v2) v1) (lambda (v3 v4) v3)))) ; next stores function for the cdr and after sublists
+
+;; 8) Using CPS, moveAllXleft* moves every atom x one space to the left
+(define moveAllXleft*-cps
+  (lambda (x lis)
+    (cond
+      ((null? lis) '()))))
+
+(define moveAllXleft*
+  (lambda (x lis)
+    (moveAllXleft* x lis (lambda (v) v))))

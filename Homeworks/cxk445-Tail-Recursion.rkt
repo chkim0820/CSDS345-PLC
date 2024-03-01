@@ -158,3 +158,17 @@
       ((null? lis) '())
       ((eq? x (car lis)) (cons (car lis) (call/cc (lambda (break) (collapse-x-cc x (cdr lis) break)))))
       (else (cons (car lis) (collapse-x x (cdr lis)))))))
+
+
+;; 10) Using call/cc, xindex empties any sublists containing the given atom & replace w/ index
+(define xindex-cc
+  (lambda (x lis ind break)
+    (cond
+      ((null? lis) '())
+      ((eq? (car lis) x) (break (list ind)))
+      ((pair? (car lis)) (cons (xindex x (car lis)) (xindex-cc x (cdr lis) (+ 1 ind) break)))
+      (else (cons (car lis) (xindex-cc x (cdr lis) (+ 1 ind) break))))))
+
+(define xindex
+  (lambda (x lis)
+    (call/cc (lambda (break) (xindex-cc x lis 1 break)))))

@@ -1,4 +1,5 @@
 #lang racket
+;;; By Chaehyeon Kim (cxk445) for CSDS 345 Continuation and Tail Recursion Programming Exercise
 
 ;; 1) Using accumulator passing style, choose returns the combinatorial choose function
 (define choose-aps
@@ -95,9 +96,9 @@
     (cond
       ((or (zero? k) (or (null? lis1) (null? lis2))) (next k lis2 (return lis1)))
       ((pair? (car lis1)) (replacefirstk*-cps k (car lis1) lis2 (lambda (v) v) ; parenthesis?
-                                             (lambda (new-k new-lis2 prev) ; this is the next function for cdr
-                                               (replacefirstk*-cps new-k (cdr lis1) new-lis2 ; has new functions
-                                                                   (lambda (v) (return (cons prev v))) next))))
+                                              (lambda (new-k new-lis2 prev) ; this is the next function for cdr
+                                                (replacefirstk*-cps new-k (cdr lis1) new-lis2 ; has new functions
+                                                                    (lambda (v) (return (cons prev v))) next))))
       (else (replacefirstk*-cps (- k 1) (cdr lis1) (cdr lis2) (lambda (v) (return (cons (car lis2) v))) next)))))
 
 (define replacefirstk*
@@ -108,41 +109,46 @@
 (define moveAllXleft*-cps
   (lambda (x lis return)
     (cond
-      ((or (null? lis) (not (list? lis))) (return lis)) ; lis not a list or null list
-      ((eq? x (car lis)) (moveAllXleft*-cps x (cdr lis) return)) ; current is x; not appending the current x
-      ((not (pair? (cdr lis))) (moveAllXleft*-cps x (car lis) ; cdr is null list
-                                                  (lambda (v) (return (cons v '())))))
-      ;; next is x
-      ((and (list? (car lis)) (eq? x (cadr lis))) ; next is x & car is a list; ex) () x => (x)
-       (moveAllXleft*-cps x (car lis) (lambda (v1) (moveAllXleft*-cps x (cdr lis) (lambda (v2) (return (cons (myappend v1 (cons x '())) v2))))))) ; FIX
-      ((eq? x (cadr lis)) (moveAllXleft*-cps x (cdr lis) (lambda (v) (return (list x (car lis) v))))) ; next is x & car is not a list 
-
-      ;; next is a list with x in front; car can be a list or not a list
-      ((and (pair? (cadr lis)) (eq? x (car (cadr lis))))
-       (moveAllXleft*-cps x (car lis) (lambda (v1) (moveAllXleft*-cps x (cdr lis)
-                                                                      (lambda (v2) (return (list v1 x v2))))))) ; next is a list with x in front
+      ((null? lis) (return '())) ; null list
+      ((and (pair? (car lis)) (eq? x (car (car lis)))) ; Special case: ((x))
+       (moveAllXleft*-cps x (car lis) (lambda (v1)
+                                        (moveAllXleft*-cps x (cdr lis) (lambda (v2) (return (cons x (cons v1 v2))))))))
+      ((and (null? (cdr lis)) (pair? (car lis))) ; cdr is null (nothing after) & currently list
+       (moveAllXleft*-cps x (car lis) (lambda (v) (return (list v)))))
+      ((and (null? (cdr lis)) (eq? x (car lis))) (return '()))
+      ((null? (cdr lis)) (return lis)) ; cdr is null (nothing after) & currently list
+      ((and (eq? x (car lis)) (eq? x (cadr lis))) (moveAllXleft*-cps x (cdr lis) (lambda (v) (return (cons x v)))))
+      ((eq? x (car lis)) (moveAllXleft*-cps x (cdr lis) return)) ; car is x 
       
-      ((pair? (car lis)) (moveAllXleft*-cps x (car lis) ; car is list & next is not (no x)
+      ((and (eq? x (cadr lis)) (list? (car lis))) ; car is list & next is x
+       (moveAllXleft*-cps x (car lis) (lambda (v1) (moveAllXleft*-cps x (cdr lis)
+                                                                      (lambda (v2) (return (cons (myappend v1 (list x)) v2)))))))
+      ((eq? x (cadr lis)) (moveAllXleft*-cps x (cdr lis) (lambda (v) (return (cons x (cons (car lis) v)))))) ; next is x & curr not list
+      ((pair? (car lis)) (moveAllXleft*-cps x (car lis) ; next is not x & curr list
                                             (lambda (v1) (moveAllXleft*-cps x (cdr lis) (lambda (v2) (return (cons v1 v2)))))))
-      (else (moveAllXleft*-cps x (cdr lis) (lambda (v) (return (cons (car lis) v)))))))) ; none of the above
-
+      (else (moveAllXleft*-cps x (cdr lis) (lambda (v) (return (cons (car lis) v))))))))
+ 
 (define moveAllXleft*
   (lambda (x lis)
     (moveAllXleft*-cps x lis (lambda (v) v))))
 
 ; helper) myappend appends two lists together
-(define myappend
+(define myappend 
   (lambda (l1 l2)
     (if (null? l1)
         l2
-        (cons (car l1 (myappend (cdr l1) l2))))))
+        (cons (car l1) (myappend (cdr l1) l2)))))
 ; cases:
-; 1) current is x
-; 2) next is x & curr list
-; 3) next not x & curr list
-; 4) next is x & curr not list
-; 5) next is a list with x in front (curr not list)
-; FIX?: ()(X) => ()X()
+; 1) Null list
+; 2) current is x
+; special: ((x))
+; 3) nothing after & car is a list
+; 4) nothing after & car is not a list
+
+; 5) next is x & curr list
+; 6) next is x & curr not list
+; 7) next is not x & curr list
+; 8) next is a list with x in front (curr not list)
 
 ;; 9) Using call/cc, collapse-x returns with all atoms between the given atoms collapsed
 (define collapse-x-cc

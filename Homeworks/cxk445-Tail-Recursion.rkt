@@ -96,9 +96,8 @@
       ((or (zero? k) (or (null? lis1) (null? lis2))) (next k lis2 (return lis1)))
       ((pair? (car lis1)) (replacefirstk*-cps k (car lis1) lis2 (lambda (v) v) ; parenthesis?
                                              (lambda (new-k new-lis2 prev) ; this is the next function for cdr
-                                               (replacefirstk*-cps new-k (cdr lis1) new-lis2
-                                                                   (lambda (v) (return (cons prev v))) ; new return func 
-                                                                   (lambda (v1 v2 v3) v3)))))
+                                               (replacefirstk*-cps new-k (cdr lis1) new-lis2 ; has new functions
+                                                                   (lambda (v) (return (cons prev v))) next))))
       (else (replacefirstk*-cps (- k 1) (cdr lis1) (cdr lis2) (lambda (v) (return (cons (car lis2) v))) next)))))
 
 (define replacefirstk*

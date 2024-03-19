@@ -18,6 +18,10 @@
     (cond
       ((null? lis) (return 0))
       ((eq? (car lis) 'cut) (sum-with-cut2 (cdr lis) return return))
-      ((eq? (car lis) 'allow) (sum-with-cut (cdr lis) (lambda (v) (+ (cadr lis) v)) (lambda (v) (cut (+ (cadr lis) v))))) 
+      ((eq? (car lis) 'allow) (sum-with-cut2 (cdr lis) (lambda (v) (+ (cadr lis) v)) (lambda (v) (cut (+ (cadr lis) v))))) 
       ((eq? (car lis) 'end) (sum-with-cut2 (cdr lis) cut cut))
       (else (sum-with-cut2 (cdr lis) (lambda (v) (return (+ (car lis) v))) cut)))))
+
+(define sumwithcut
+  (lambda (lis)
+    (sum-with-cut2 lis (lambda (v) v) (lambda (v) v))))

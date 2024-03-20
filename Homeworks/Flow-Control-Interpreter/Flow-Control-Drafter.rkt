@@ -39,8 +39,8 @@
 (check-expect (interpret "MakeTestsPart2/test2b.txt") 164)
 (check-expect (interpret "MakeTestsPart2/test3b.txt") 32)
 (check-expect (interpret "MakeTestsPart2/test4b.txt") 2)
-;(check-error (interpret "MakeTestsPart2/test5b.txt") "error")
-;(check-expect (interpret "MakeTestsPart2/test6b.txt") 25)
+(check-error (interpret "MakeTestsPart2/test5b.txt") "using before declaring")
+(check-expect (interpret "MakeTestsPart2/test6b.txt") 25)
 ;(check-expect (interpret "MakeTestsPart2/test7b.txt") 21)
 ;(check-expect (interpret "MakeTestsPart2/test8b.txt") 6)
 ;(check-expect (interpret "MakeTestsPart2/test9b.txt") -1)
@@ -73,9 +73,10 @@
 ; parse-prog takes a list representing a syntax tree and returns the proper value (or error).
 (define parse-prog
   (lambda (prog state)
-    (if (null? prog)
-        (lookup-layers 'return state) ; End of program. Give the return value. ;FIX?
-        (m-state (curr-line prog) state (lambda (new-state) (parse-prog (next-lines prog) new-state)))))) ; Parse the next statement
+    (cond
+      ((find-var-layers 'return state) (lookup-layers 'return state))
+      ((null? prog) (error "no return statement")) ; End of program. Give the return value. ;FIX?
+      (else (m-state (curr-line prog) state (lambda (new-state) (parse-prog (next-lines prog) new-state))))))) ; Parse the next statement
 
 ; helper function for next program
 (define curr-line (lambda (prog) (if (null? prog) prog (car prog))))
@@ -124,21 +125,21 @@
 ; '(((a) (2)))
 
 ; helper function to see if a variable already exists in layers/states
-(define findVar-layers
+(define find-var-layers
   (lambda (var layers)
     (cond
       ((empty-layers layers) #f)
-      ((empty-state (curr-layer layers)) (findVar-layers var (next-layers layers)))
+      ((empty-state (curr-layer layers)) (find-var-layers var (next-layers layers)))
       ((equal? (get-var (curr-layer layers)) var) #t)
-      (else (findVar-layers var (next-curr-layer layers))))))
+      (else (find-var-layers var (next-curr-layer layers))))))
 
 ; helper function to return t/f depending on whether var already exists in current state/layer
-(define findVar
+(define find-var
   (lambda (var state)
     (cond
       ((empty-state state) #f)
       ((equal? (get-var state) var) #t)
-      (else (findVar var (next-state state))))))
+      (else (find-var var (next-state state))))))
 
 ; addbinding adds a binding to the state
 (define addbinding
@@ -149,7 +150,7 @@
   (lambda (var val layers)
     (cond
       ((empty-layers layers) layers)
-      ((false? (findVar-layers var layers)) ; var not in the layers yet; add to the top layer
+      ((false? (find-var-layers var layers)) ; var not in the layers yet; add to the top layer
        (cons (addbinding var val (curr-layer layers)) (rmv-layer layers)))
       (else (cons (curr-layer layers) (updatebinding-layers var val (next-layers layers))))))) ; update existing binding if exists
 
@@ -168,7 +169,7 @@
   (lambda (var layers)
     (cond
       ((empty-layers layers) layers)
-      ((false? (findVar var (curr-layer layers))) (cons (curr-layer layers) (removebinding-layers var (next-layers layers))))
+      ((false? (find-var var (curr-layer layers))) (cons (curr-layer layers) (removebinding-layers var (next-layers layers))))
       (else (cons (removebinding var (curr-layer layers)) (rmv-layer layers))))))
 
 ; updatebinding adds a binding if it does not already exist; if a binding exists, it updates.
@@ -181,7 +182,7 @@
   (lambda (var val layers)
     (cond
       ((empty-layers layers) layers)
-      ((false? (findVar var (curr-layer layers))) (cons (curr-layer layers) (updatebinding-layers var val (next-layers layers))))
+      ((false? (find-var var (curr-layer layers))) (cons (curr-layer layers) (updatebinding-layers var val (next-layers layers))))
       (else (cons (updatebinding var val (curr-layer layers)) (rmv-layer layers))))))
 
 
@@ -289,7 +290,7 @@
       ((eq? (operator stmt) '=)      (next (parse-asgn (arg1 stmt) (arg2 stmt) state)))
       ((eq? (operator stmt) 'var)    (next (parse-decl stmt state)))
       ((eq? (operator stmt) 'while)  (next (parse-while stmt state)))
-      ((eq? (operator stmt) 'return) (next (parse-return stmt state)))
+      ((eq? (operator stmt) 'return) (next (parse-return stmt state))) ; FIX?
       ((eq? (operator stmt) 'if)     (next (parse-if stmt state)))
       ((eq? (operator stmt) 'begin)  (next (parse-block stmt state))) ; For a block of code
       ((not (roperand? stmt)) (next (m-state (loperand stmt) state next))) ; no right operand

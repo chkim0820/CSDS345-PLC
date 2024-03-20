@@ -36,9 +36,9 @@
 ; test cases for part 2
 ;#| <- multi-line comment
 (check-expect (interpret "MakeTestsPart2/test1b.txt") 20)
-;(check-expect (interpret "MakeTestsPart2/test2b.txt") 164)
-;(check-expect (interpret "MakeTestsPart2/test3b.txt") 32)
-;(check-expect (interpret "MakeTestsPart2/test4b.txt") 2)
+(check-expect (interpret "MakeTestsPart2/test2b.txt") 164)
+(check-expect (interpret "MakeTestsPart2/test3b.txt") 32)
+(check-expect (interpret "MakeTestsPart2/test4b.txt") 2)
 ;(check-error (interpret "MakeTestsPart2/test5b.txt") "error")
 ;(check-expect (interpret "MakeTestsPart2/test6b.txt") 25)
 ;(check-expect (interpret "MakeTestsPart2/test7b.txt") 21)
@@ -404,12 +404,11 @@
 (define return-val (lambda (stmt) (car (cdr stmt))))
 
 
-
 ;============================================================================
 ; FLOW CONTROL FUNCTIONS (Part 2)
 ;============================================================================
 
-; Parsing code blocks using call-cc
+; Parsing code blocks
 (define parse-block
   (lambda (stmt layers) ; assume layers are inputted
     (cond
@@ -421,7 +420,7 @@
 ; Helper function to return next statement in the block
 (define curr-stmt (lambda (stmt) (if (null? stmt) stmt (car stmt))))
 (define empty-stmt (lambda (stmt) (if (null? stmt) #t #f)))
-(define next-stmts (lambda (stmt) (if (null? (cdr stmt)) stmt (cdr stmt))))
+(define next-stmts (lambda (stmt) (if (null? stmt) stmt (cdr stmt))))
 (define add-layer (lambda (layers) (cons '(() ()) layers)))
 (define rmv-layer (lambda (layers) (cdr layers)))
 

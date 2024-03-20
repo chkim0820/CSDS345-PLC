@@ -7,11 +7,6 @@
 ; Description: Flow Control Interpreter
 
 
-; helper function for debugging:
-(define tree
-  (lambda (filename)
-    (parser filename)))
-
 ; test by running (test) in console
 
 ; test cases for part 1
@@ -69,16 +64,19 @@
 ; returned by parser, and returns the proper value.
 (define interpret
   (lambda (filename)
-    (parse-prog (parser filename) '[((true false) (#t #f))]))) ; the layer contains the initial state (expressed with [])
-                                                               ; the initial state is a list with 2 sublists
-                                                               ; true or false stored as default
+    (parse-prog (parser filename) '[((true false) (#t #f))] (lambda (v) v)))) ; the layer contains the initial state (expressed with [])
+                                                                              ; the initial state is a list with 2 sublists
+                                                                              ; true or false stored as default
 
 ; parse-prog takes a list representing a syntax tree and returns the proper value (or error).
 (define parse-prog
   (lambda (prog state)
     (if (null? prog)
         (lookup 'return state) ; End of program. Give the return value.
-        (parse-prog (cdr prog) (m-state (car prog) state (lambda (v) v)))))) ; Parse the next statement
+        (m-state (car prog) state (lambda (new) (parse-prog (next-prog prog) new)))))) ; Parse the next statement
+
+; helper function for next program
+(define next-prog (lambda (prog) (if (null? prog) prog (cdr prog))))
 
 ;============================================================================
 ; STATE FUNCTIONS (i.e. lookup, addbinding, etc.)
@@ -95,7 +93,7 @@
 ; For layers
 (define curr-layer (lambda (layers) (if (empty-layers layers) layers (car layers))))
 (define next-layers (lambda (layers) (if (empty-layers layers) layers (cdr layers)))) ; returns the next state on layers
-(define next-state-layers (lambda (layers) (if (or (null? layers) (null? (curr-layer layers))) layers ; next in 1st layer
+(define next-curr-layer (lambda (layers) (if (or (null? layers) (null? (curr-layer layers))) layers ; next in 1st layer
                                                (cons (next-state (curr-layer layers)) (cdr layers)))))
 (define empty-layers (lambda (layers) (if (null? layers) #t #f))) ; end of the list of layers reached
 
@@ -103,7 +101,7 @@
 (define lookup
   (lambda (var state)
     (cond
-      ((empty-state state)          (error "using before declaring")) ; var not initialized yet
+      ;((empty-state state)          (error "using before declaring")) ; var not initialized yet ; FIX?
       ((empty-state state)          state)
       ((equal? (get-var state) var) (get-val state)) ; returns value or 'novalue depending on assignment status
       (else                         (lookup var (next-state state)))))) ; not equal; recurse down further
@@ -115,18 +113,42 @@
       ((empty-layers layers)                      (error "using before declaring"))
       ((empty-state (curr-layer layers))          (lookup-layers var (next-layers layers))) ; current state is empty
       ((equal? (get-var (curr-layer layers)) var) (get-val (curr-layer layers))) ; current layer has a variable that matches the input
-      (else                                       (lookup-layers var (next-state-layers layers)))))) ; continue in current layer
+      (else                                       (lookup-layers var (next-curr-layer layers)))))) ; continue in current layer
 
 ; new state using layers should look like:
 ; '(((x y z) (1 2 3)) ((a) (2)))
 ; if the block w/ x y z is exited:
 ; '(((a) (2)))
 
+; helper function to see if a variable already exists in layers/states
+(define findVar-layers
+  (lambda (var layers)
+    (cond
+      ((empty-layers layers) #f)
+      ((empty-state (curr-layer layers)) (findVar-layers var (next-layers layers)))
+      ((equal? (get-var (curr-layer layers)) var) #t)
+      (else (findVar-layers var (next-curr-layer layers))))))
+
+; helper function to return t/f depending on whether var already exists in current state/layer
+(define findVar
+  (lambda (var state)
+    (cond
+      ((empty-state state) #f)
+      ((equal? (get-var state) var) #t)
+      (else (findVar var (next-state state))))))
 
 ; addbinding adds a binding to the state
 (define addbinding
   (lambda (var val state)
     (list (cons var (get-vars state)) (cons val (get-vals state))))) ; adding to state
+
+(define addbinding-layers
+  (lambda (var val layers)
+    (cond
+      ((empty-layers layers) layers)
+      ((false? (findVar-layers var layers)) ; var not in the layers yet; add to the top layer
+       (cons (addbinding var val (curr-layer layers)) (rmv-layer layers)))
+      (else (cons (curr-layer layers) (updatebinding-layers var val (next-layers layers))))))) ; update existing binding if exists
 
 ; removebinding removes a binding from the state
 (define removebinding
@@ -138,10 +160,27 @@
                                                 (get-val state)
                                                 (removebinding var (next-state state)))))))
 
+; removebinding for multiple layers
+(define removebinding-layers
+  (lambda (var layers)
+    (cond
+      ((empty-layers layers) layers)
+      ((false? (findVar var (curr-layer layers))) (cons (curr-layer layers) (removebinding-layers var (next-layers layers))))
+      (else (cons (removebinding var (curr-layer layers)) (rmv-layer layers))))))
+
 ; updatebinding adds a binding if it does not already exist; if a binding exists, it updates.
 (define updatebinding
   (lambda (var val state)
     (addbinding var val (removebinding var state)))) ;remove existing bindings first & add new binding
+
+; updatebinding for layers
+(define updatebinding-layers
+  (lambda (var val layers)
+    (cond
+      ((empty-layers layers) layers)
+      ((false? (findVar var (curr-layer layers))) (cons (curr-layer layers) (updatebinding-layers var val (next-layers layers))))
+      (else (cons (updatebinding var val (curr-layer layers)) (rmv-layer layers))))))
+
 
 ;============================================================================
 ; EVAL FUNCTIONS (i.e. m-state, m-int, m-bool, etc.)
@@ -249,13 +288,9 @@
       ((eq? (operator stmt) 'while)  (return (parse-while stmt state)))
       ((eq? (operator stmt) 'return) (return (parse-return stmt state)))
       ((eq? (operator stmt) 'if)     (return (parse-if stmt state)))
+      ((eq? (operator stmt) 'begin)  (return (parse-block stmt state))) ; For a block of code
       ((not (roperand? stmt)) (return (m-state (loperand stmt) state return))) ; no right operand
       (else (return (m-state (roperand stmt) (m-state (loperand stmt) state return) return)))))) ; Else, it's m-int or m-bool with args to update
-
-
-; repeat - turn a while loop into tail recursion........
-; 
-
 
 
 ; bool-check checks if boolean operation is done (returns bool)
@@ -371,9 +406,21 @@
 ; FLOW CONTROL FUNCTIONS (Part 2)
 ;============================================================================
 
+; Parsing code blocks using call-cc
+(define parse-block
+  (lambda (stmt layers) ; assume layers are inputted
+    (cond
+      ;((empty-layers layers) (error "no states given")) ; no state in layers
+      ((empty-stmt stmt) (rmv-layer layers)) ; remove the current layer at the end of block
+      ((eq? 'begin (curr-stmt stmt)) (parse-block (next-stmts stmt) (add-layer layers)))
+      (else (m-state (curr-stmt stmt) layers (lambda (state) (parse-block (next-stmts stmt) state)))))))
 
-
-
+; Helper function to return next statement in the block
+(define curr-stmt (lambda (stmt) (if (null? stmt) stmt (car stmt))))
+(define empty-stmt (lambda (stmt) (if (null? stmt) #t #f)))
+(define next-stmts (lambda (stmt) (if (null? (cdr stmt)) stmt (cdr stmt))))
+(define add-layer (lambda (layers) (cons '(() ()) layers)))
+(define rmv-layer (lambda (layers) (cdr layers)))
 
 
 

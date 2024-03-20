@@ -41,7 +41,7 @@
 (check-expect (interpret "MakeTestsPart2/test4b.txt") 2)
 (check-error (interpret "MakeTestsPart2/test5b.txt") "using before declaring")
 (check-expect (interpret "MakeTestsPart2/test6b.txt") 25)
-;(check-expect (interpret "MakeTestsPart2/test7b.txt") 21)
+(check-expect (interpret "MakeTestsPart2/test7b.txt") 21)
 ;(check-expect (interpret "MakeTestsPart2/test8b.txt") 6)
 ;(check-expect (interpret "MakeTestsPart2/test9b.txt") -1)
 ;(check-expect (interpret "MakeTestsPart2/test10b.txt") 789)
@@ -286,6 +286,7 @@
 (define m-state
   (lambda (stmt state next)
     (cond
+      ((find-var-layers 'return state) state)
       ((not (list? stmt))            (next state))
       ((eq? (operator stmt) '=)      (next (parse-asgn (arg1 stmt) (arg2 stmt) state)))
       ((eq? (operator stmt) 'var)    (next (parse-decl stmt state)))
@@ -389,7 +390,8 @@
   (lambda (stmt state)
     (cond
       ((m-bool (condition stmt) state) ; condition is true; continue looping
-       (parse-while stmt (m-state (statement stmt) (m-state (condition stmt) state (lambda (v) v)) (lambda (v) v))))
+       (m-state (statement stmt) (m-state (condition stmt) state (lambda (v) v)) (lambda (st) (parse-while stmt st))))
+       ;(m-state (condition stmt) state (lambda (st) (m-state (statement stmt) st (lambda (st2) (parse-while stmt st2))))))
       (else (m-state (condition stmt) state (lambda (v) v)))))) ; condition is false; stop loop
 
 ; abstraction for while statement
@@ -414,6 +416,7 @@
   (lambda (stmt layers) ; assume layers are inputted
     (cond
       ;((empty-layers layers) (error "no states given")) ; no state in layers
+      ((find-var-layers 'return layers) layers)
       ((empty-stmt stmt) (rmv-layer layers)) ; remove the current layer at the end of block
       ((eq? 'begin (curr-stmt stmt)) (parse-block (next-stmts stmt) (add-layer layers)))
       (else (m-state (curr-stmt stmt) layers (lambda (state) (parse-block (next-stmts stmt) state)))))))

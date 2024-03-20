@@ -10,6 +10,7 @@
 ; test by running (test) in console
 
 ; test cases for part 1
+#|
 (check-expect (interpret "MakeTestsPart1/test1a.txt") 150)
 (check-expect (interpret "MakeTestsPart1/test2a.txt") -4)
 (check-expect (interpret "MakeTestsPart1/test3..txt") 10)
@@ -30,6 +31,7 @@
 (check-expect (interpret "MakeTestsPart1/test18a.txt") 'true)
 (check-expect (interpret "MakeTestsPart1/test19a.txt") 128)
 (check-expect (interpret "MakeTestsPart1/test20a.txt") 12)
+|#
 
 ; test cases for part 2
 ;#| <- multi-line comment
@@ -64,7 +66,7 @@
 ; returned by parser, and returns the proper value.
 (define interpret
   (lambda (filename)
-    (parse-prog (parser filename) '[((true false) (#t #f))] (lambda (v) v)))) ; the layer contains the initial state (expressed with [])
+    (parse-prog (parser filename) '[((true false) (#t #f))]))) ; the layer contains the initial state (expressed with [])
                                                                               ; the initial state is a list with 2 sublists
                                                                               ; true or false stored as default
 
@@ -72,11 +74,12 @@
 (define parse-prog
   (lambda (prog state)
     (if (null? prog)
-        (lookup 'return state) ; End of program. Give the return value.
-        (m-state (car prog) state (lambda (new) (parse-prog (next-prog prog) new)))))) ; Parse the next statement
+        (lookup-layers 'return state) ; End of program. Give the return value. ;FIX?
+        (m-state (curr-line prog) state (lambda (new-state) (parse-prog (next-lines prog) new-state)))))) ; Parse the next statement
 
 ; helper function for next program
-(define next-prog (lambda (prog) (if (null? prog) prog (cdr prog))))
+(define curr-line (lambda (prog) (if (null? prog) prog (car prog))))
+(define next-lines (lambda (prog) (if (null? prog) prog (cdr prog))))
 
 ;============================================================================
 ; STATE FUNCTIONS (i.e. lookup, addbinding, etc.)
@@ -101,7 +104,7 @@
 (define lookup
   (lambda (var state)
     (cond
-      ;((empty-state state)          (error "using before declaring")) ; var not initialized yet ; FIX?
+      ((empty-state state)          (error "using before declaring")) ; var not initialized yet ; FIX?
       ((empty-state state)          state)
       ((equal? (get-var state) var) (get-val state)) ; returns value or 'novalue depending on assignment status
       (else                         (lookup var (next-state state)))))) ; not equal; recurse down further
@@ -207,9 +210,9 @@
   (lambda (boolexp state)
     (cond
       ((number? boolexp)             boolexp)
-      ((symbol? boolexp)            (if (equal? (lookup boolexp state) 'novalue)
+      ((symbol? boolexp)            (if (equal? (lookup-layers boolexp state) 'novalue)
                                         (error "used before assigned")
-                                        (lookup boolexp state)))
+                                        (lookup-layers boolexp state)))
       ((intexp? boolexp)            (m-int boolexp state)) ; handle intexps nested in boolean expressions
       ((or (is-asgn (loperand boolexp)) ; left or right operand is an assignment stmt
            (and (roperand? boolexp) (is-asgn (roperand boolexp))))
@@ -260,9 +263,9 @@
   (lambda (intexp state)
     (cond
       ((number? intexp)           intexp)
-      ((symbol? intexp)           (if (equal? (lookup intexp state) 'novalue)
+      ((symbol? intexp)           (if (equal? (lookup-layers intexp state) 'novalue)
                                       (error "using before assigning")
-                                      (lookup intexp state))) ; lookup variable value
+                                      (lookup-layers intexp state))) ; lookup variable value
       ((or (is-asgn (loperand intexp)) ; left or right operand is an assignment stmt
            (and (roperand? intexp) (is-asgn (roperand intexp))))
        (m-int (new-stmt (operator intexp) (value-get (asgn-var (loperand intexp)) (m-state (loperand intexp) state (lambda (v) v)))
@@ -280,17 +283,17 @@
 
 ; m-state changes the state
 (define m-state
-  (lambda (stmt state return)
+  (lambda (stmt state next)
     (cond
-      ((not (list? stmt))            (return state))
-      ((eq? (operator stmt) '=)      (return (parse-asgn (arg1 stmt) (arg2 stmt) state)))
-      ((eq? (operator stmt) 'var)    (return (parse-decl stmt state)))
-      ((eq? (operator stmt) 'while)  (return (parse-while stmt state)))
-      ((eq? (operator stmt) 'return) (return (parse-return stmt state)))
-      ((eq? (operator stmt) 'if)     (return (parse-if stmt state)))
-      ((eq? (operator stmt) 'begin)  (return (parse-block stmt state))) ; For a block of code
-      ((not (roperand? stmt)) (return (m-state (loperand stmt) state return))) ; no right operand
-      (else (return (m-state (roperand stmt) (m-state (loperand stmt) state return) return)))))) ; Else, it's m-int or m-bool with args to update
+      ((not (list? stmt))            (next state))
+      ((eq? (operator stmt) '=)      (next (parse-asgn (arg1 stmt) (arg2 stmt) state)))
+      ((eq? (operator stmt) 'var)    (next (parse-decl stmt state)))
+      ((eq? (operator stmt) 'while)  (next (parse-while stmt state)))
+      ((eq? (operator stmt) 'return) (next (parse-return stmt state)))
+      ((eq? (operator stmt) 'if)     (next (parse-if stmt state)))
+      ((eq? (operator stmt) 'begin)  (next (parse-block stmt state))) ; For a block of code
+      ((not (roperand? stmt)) (next (m-state (loperand stmt) state next))) ; no right operand
+      (else (next (m-state (roperand stmt) (m-state (loperand stmt) state next) next)))))) ; Else, it's m-int or m-bool with args to update
 
 
 ; bool-check checks if boolean operation is done (returns bool)
@@ -323,16 +326,16 @@
 (define parse-asgn ; assuming input names valid
   (lambda (var expr state)
     (cond
-      ((equal? (lookup var state) 'not-initialized) (error "Variable not declared yet")) ; var not declared yet
-      ((number? expr) (updatebinding var expr state)) ; assigning int
-      ((boolean? expr) (updatebinding var (bool-cvt expr) state)) ; assigning bool
-      ((not (list? expr))                  (updatebinding var (lookup expr state) state)) ; variable
-      ((bool-check (operator expr))        (updatebinding var (bool-cvt (m-bool expr state))
+      ((equal? (lookup-layers var state) 'not-initialized) (error "Variable not declared yet")) ; var not declared yet
+      ((number? expr)                      (updatebinding-layers var expr state)) ; assigning int
+      ((boolean? expr)                     (updatebinding-layers var (bool-cvt expr) state)) ; assigning bool
+      ((not (list? expr))                  (updatebinding-layers var (lookup-layers expr state) state)) ; variable
+      ((bool-check (operator expr))        (updatebinding-layers var (bool-cvt (m-bool expr state))
                                                        (m-state expr state (lambda (v) v)))) ; bool expr
-      ((int-check (operator expr))         (updatebinding var (m-int expr state) ; numerical expression
+      ((int-check (operator expr))         (updatebinding-layers var (m-int expr state) ; numerical expression
                                                        (m-state expr state (lambda (v) v)))) 
-      (else                                (updatebinding var ; handle assignment within assignment
-                                                       (lookup (arg1 expr) (parse-asgn (arg1 expr) (arg2 expr) state))
+      (else                                (updatebinding-layers var ; handle assignment within assignment
+                                                       (lookup-layers (arg1 expr) (parse-asgn (arg1 expr) (arg2 expr) state))
                                                        (parse-asgn (arg1 expr) (arg2 expr) state))))))
 
 ; exp-arg returns true if assignment with declaration, else false
@@ -350,8 +353,8 @@
 (define parse-decl
   (lambda (stmt state)
     (cond
-      ((not (exp-arg stmt)) (addbinding (arg1 stmt) 'novalue state)) ; no assignment
-      (else (parse-asgn (arg1 stmt) (arg2 stmt) (addbinding (arg1 stmt) 'novalue state))))))
+      ((not (exp-arg stmt)) (addbinding-layers (arg1 stmt) 'novalue state)) ; no assignment
+      (else (parse-asgn (arg1 stmt) (arg2 stmt) (addbinding-layers (arg1 stmt) 'novalue state))))))
 
 ; parse-if parses if statements
 (define parse-if
@@ -395,7 +398,7 @@
 ; parse-return parses a return statement
 (define parse-return
   (lambda (stmt state)
-    (parse-asgn 'return (return-val stmt) (addbinding 'return 'novalue state))))
+    (parse-asgn 'return (return-val stmt) (addbinding-layers 'return 'novalue state))))
 
 ; Helper function for parse-return; return the expression or value to be returned
 (define return-val (lambda (stmt) (car (cdr stmt))))

@@ -44,7 +44,7 @@
 (check-expect (interpret "MakeTestsPart2/test7b.txt") 21)
 (check-expect (interpret "MakeTestsPart2/test8b.txt") 6)
 (check-expect (interpret "MakeTestsPart2/test9b.txt") -1)
-;(check-expect (interpret "MakeTestsPart2/test10b.txt") 789)
+(check-expect (interpret "MakeTestsPart2/test10b.txt") 789)
 ;(check-error (interpret "MakeTestsPart2/test11b.txt") "error")
 ;(check-error (interpret "MakeTestsPart2/test12b.txt") "error")
 ;(check-error (interpret "MakeTestsPart2/test13b.txt") "error")
@@ -390,11 +390,12 @@
     (cond
       ((m-bool (condition stmt) state) ; condition is true; continue looping 
        (m-state (condition stmt) state
-                (lambda (v1) (define continue (lambda (cont) (m-state stmt cont (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v))))
+                (lambda (v1)
+                  (define continue (lambda (cont) (m-state stmt cont (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v))))
+                  (define break (lambda (br) (next br)))
                   (m-state (body stmt) v1
-                           (lambda (v2) (m-state stmt v2
-                                                 (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v)))
-                                      return continue (lambda (v) v)))
+                           (lambda (v2) (m-state stmt v2 (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v)))
+                           return continue break))
                 return continue break))
       (else (m-state (condition stmt) state (lambda (v) (next v)) return continue break))))) ; condition is false; stop loop
 

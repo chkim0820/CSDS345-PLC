@@ -47,7 +47,7 @@
 (check-error (interpret "MakeTestsPart2/test13b.txt") "invalid break")
 (check-expect (interpret "MakeTestsPart2/test14b.txt") 12)
 (check-expect (interpret "MakeTestsPart2/test15b.txt") 125)
-;(check-expect (interpret "MakeTestsPart2/test16b.txt") 110)
+(check-expect (interpret "MakeTestsPart2/test16b.txt") 110)
 ;(check-expect (interpret "MakeTestsPart2/test17b.txt") 2000400)
 ;(check-expect (interpret "MakeTestsPart2/test18b.txt") 101)
 ;(check-error (interpret "MakeTestsPart2/test19b.txt") "error")
@@ -298,6 +298,7 @@
       ((eq? (operator stmt) 'continue) (continue (rmv-layer state)))
       ((eq? (operator stmt) 'break)  (break (rmv-layer state)))
       ((eq? (operator stmt) 'try)    (parse-try stmt state next return continue break throw))
+      ((eq? (operator stmt) 'throw)  (throw (arg1 stmt) state))
       ((not (roperand? stmt)) (m-state (loperand stmt) state next return continue break throw)) ; no right operand
       (else (m-state (loperand stmt) state
                      (lambda (v1) (m-state (roperand stmt) (next v1) (lambda (v2) v2) return continue break throw)) return continue break throw))))) ; Else, it's m-int or m-bool with args to update
@@ -440,5 +441,32 @@
   (lambda (stmt state next return continue break throw)
     (cond
       ((null? stmt) '())
-      ((eq? 'try (curr-stmt stmt))))))
+      
+      ((eq? 'try (curr-stmt stmt))
+       (define try-block (cons 'begin (curr-stmt (next-stmts stmt)))) ; i.e. ((= x 20) (if (< x 0) (throw 10)) (= x (+ x 5)))
+       (define new-next (lambda (v) (m-state (finally-block stmt) v next return continue break throw)))
 
+   
+       (define new-throw (lambda (e st)
+                           (m-state catch-block st next return continue break throw)))
+       (m-state try-block state new-next return continue break throw))))) ; beginning of try/catch/finally
+
+
+
+; Helper functions for parse-try, i.e. (finally ((= x (+ x 100))))
+(define catch-block
+  (lambda (stmt)
+    (define 2nd-block (car (cdr (cdr stmt))))
+    (cond
+      ((null? (cdr (cdr stmt))) '())
+      ((eq? 'catch (keyword 2nd-block)) 2nd-block))))
+
+(define finally-block
+  (lambda (stmt)
+    (define 2nd-block (car (cdr (cdr stmt))))
+    (define 3rd-block (car (cdr (cdr (cdr stmt)))))
+    (cond
+      ((null? (cdr (cdr stmt))) '())
+      ((eq? 'finally (keyword 2nd-block)) (cons 'begin (cadr 2nd-block)))
+      ((null? (cdr (cdr (cdr stmt)))) '())
+      ((eq? 'finally (keyword 3rd-block)) (cons 'begin (cadr 3rd-block))))))

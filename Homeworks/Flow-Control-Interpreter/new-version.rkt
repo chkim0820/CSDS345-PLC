@@ -390,10 +390,11 @@
     (cond
       ((m-bool (condition stmt) state) ; condition is true; continue looping 
        (m-state (condition stmt) state
-                (lambda (v1) (m-state (body stmt) v1
-                                      (lambda (v2) (m-state stmt v2
-                                                            (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v)))
-                                      return (lambda (cont) (m-state stmt cont (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v))) (lambda (v) v)))
+                (lambda (v1) (define continue (lambda (cont) (m-state stmt cont (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v))))
+                  (m-state (body stmt) v1
+                           (lambda (v2) (m-state stmt v2
+                                                 (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v)))
+                                      return continue (lambda (v) v)))
                 return continue break))
       (else (m-state (condition stmt) state (lambda (v) (next v)) return continue break))))) ; condition is false; stop loop
 

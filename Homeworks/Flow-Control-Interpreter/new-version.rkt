@@ -392,12 +392,11 @@
     (cond
       ((m-bool (condition stmt) state) ; condition is true; continue looping 
        (m-state (condition stmt) state
-                (lambda (v1)
-                  (define continue (lambda (cont) (m-state stmt cont (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v))))
-                  (define break (lambda (br) (next br)))
-                  (m-state (body stmt) v1
-                           (lambda (v2) (m-state stmt v2 (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v)))
-                           return continue break))
+                (lambda (new-state)
+                  (define new-next (lambda (nxt) (m-state stmt nxt (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v))))
+                  (define new-cont (lambda (cont) (m-state stmt cont (lambda (v) (next v)) return (lambda (v) v) (lambda (v) v))))
+                  (define new-break (lambda (br) (next br)))
+                  (m-state (body stmt) new-state new-next return new-cont new-break))
                 return continue break))
       (else (m-state (condition stmt) state (lambda (v) (next v)) return continue break))))) ; condition is false; stop loop
 
@@ -427,7 +426,6 @@
 (define parse-block
   (lambda (stmt layers next return continue break) ; assume layers are inputted
     (cond
-      ;((empty-layers layers) (error "no states given")) ; no state in layers
       ((empty-stmt stmt) (next (rmv-layer layers))) ; remove the current layer at the end of block
       ((eq? 'begin (curr-stmt stmt)) (parse-block (next-stmts stmt) (add-layer layers) next return continue break))
       ((eq? 'continue (keyword (curr-stmt stmt))) (continue (rmv-layer layers)))

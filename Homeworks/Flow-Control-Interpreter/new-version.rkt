@@ -50,7 +50,7 @@
 (check-expect (interpret "MakeTestsPart2/test16b.txt") 110)
 (check-expect (interpret "MakeTestsPart2/test17b.txt") 2000400)
 (check-expect (interpret "MakeTestsPart2/test18b.txt") 101)
-(check-error (interpret "MakeTestsPart2/test19b.txt") "error")
+(check-error (interpret "MakeTestsPart2/test19b.txt") "error thrown")
 (check-expect (interpret "MakeTestsPart2/test20b.txt") 21)
 
 
@@ -76,7 +76,7 @@
                      (lambda (v) v)
                      (lambda (v) (error "invalid continue"))
                      (lambda (v) (error "invalid break"))
-                     (lambda (v1 v2) v2)))))) ; Parse the next statement
+                     (lambda (v1 v2) (error "error thrown"))))))) ; Parse the next statement
 
 ; helper function for next program
 (define curr-line (lambda (prog) (if (null? prog) prog (car prog))))

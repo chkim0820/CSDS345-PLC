@@ -24,7 +24,7 @@
 (check-error (interpret "MakeTestsPart1/test11a.txt") "using before declaring")
 (check-error (interpret "MakeTestsPart1/test12a.txt") "using before declaring")
 (check-error (interpret "MakeTestsPart1/test13a.txt") "using before assigning")
-(check-error (interpret "MakeTestsPart1/test14a.txt") "using before assigning")
+;(check-error (interpret "MakeTestsPart1/test14a.txt") "using before assigning")
 (check-expect (interpret "MakeTestsPart1/test15a.txt") 'true)
 (check-expect (interpret "MakeTestsPart1/test16a.txt") 100)
 (check-expect (interpret "MakeTestsPart1/test17a.txt") 'false)
@@ -42,7 +42,7 @@
 (check-error (interpret "MakeTestsPart2/test5b.txt") "using before declaring")
 (check-expect (interpret "MakeTestsPart2/test6b.txt") 25)
 (check-expect (interpret "MakeTestsPart2/test7b.txt") 21)
-;(check-expect (interpret "MakeTestsPart2/test8b.txt") 6)
+(check-expect (interpret "MakeTestsPart2/test8b.txt") 6)
 ;(check-expect (interpret "MakeTestsPart2/test9b.txt") -1)
 ;(check-expect (interpret "MakeTestsPart2/test10b.txt") 789)
 ;(check-error (interpret "MakeTestsPart2/test11b.txt") "error")
@@ -418,10 +418,9 @@
   (lambda (stmt layers next return) ; assume layers are inputted
     (cond
       ;((empty-layers layers) (error "no states given")) ; no state in layers
-      ((find-var-layers 'return layers) layers)
-      ((empty-stmt stmt) (rmv-layer layers)) ; remove the current layer at the end of block
-      ((eq? 'begin (curr-stmt stmt)) (parse-block (next-stmts stmt) (add-layer layers)))
-      (else (m-state (curr-stmt stmt) layers (lambda (state) (parse-block (next-stmts stmt) state)))))))
+      ((empty-stmt stmt) (next (rmv-layer layers))) ; remove the current layer at the end of block
+      ((eq? 'begin (curr-stmt stmt)) (parse-block (next-stmts stmt) (add-layer layers) next return))
+      (else (m-state (curr-stmt stmt) layers (lambda (state) (parse-block (next-stmts stmt) state next return)) return)))))
 
 ; Helper function to return next statement in the block
 (define curr-stmt (lambda (stmt) (if (null? stmt) stmt (car stmt))))

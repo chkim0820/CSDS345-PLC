@@ -10,7 +10,6 @@
 ; test by running (test) in console
 
 ; test cases for part 1
-;#|
 (check-expect (interpret "MakeTestsPart1/test1a.txt") 150)
 (check-expect (interpret "MakeTestsPart1/test2a.txt") -4)
 (check-expect (interpret "MakeTestsPart1/test3..txt") 10)
@@ -24,17 +23,15 @@
 (check-error (interpret "MakeTestsPart1/test11a.txt") "using before declaring")
 (check-error (interpret "MakeTestsPart1/test12a.txt") "using before declaring")
 (check-error (interpret "MakeTestsPart1/test13a.txt") "using before assigning")
-;(check-error (interpret "MakeTestsPart1/test14a.txt") "using before assigning")
+(check-error (interpret "MakeTestsPart1/test14a.txt") "redefining")
 (check-expect (interpret "MakeTestsPart1/test15a.txt") 'true)
 (check-expect (interpret "MakeTestsPart1/test16a.txt") 100)
 (check-expect (interpret "MakeTestsPart1/test17a.txt") 'false)
 (check-expect (interpret "MakeTestsPart1/test18a.txt") 'true)
 (check-expect (interpret "MakeTestsPart1/test19a.txt") 128)
 (check-expect (interpret "MakeTestsPart1/test20a.txt") 12)
-;|#
 
 ; test cases for part 2
-;#| <- multi-line comment
 (check-expect (interpret "MakeTestsPart2/test1b.txt") 20)
 (check-expect (interpret "MakeTestsPart2/test2b.txt") 164)
 (check-expect (interpret "MakeTestsPart2/test3b.txt") 32)
@@ -55,7 +52,6 @@
 ;(check-expect (interpret "MakeTestsPart2/test18b.txt") 101)
 ;(check-error (interpret "MakeTestsPart2/test19b.txt") "error")
 ;(check-expect (interpret "MakeTestsPart2/test20b.txt") 21)
-;|#
 
 
 ;============================================================================
@@ -104,6 +100,8 @@
 (define next-curr-layer (lambda (layers) (if (or (null? layers) (null? (curr-layer layers))) layers ; next in 1st layer
                                                (cons (next-state (curr-layer layers)) (cdr layers)))))
 (define empty-layers (lambda (layers) (if (null? layers) #t #f))) ; end of the list of layers reached
+(define add-layer (lambda (layers) (cons '(() ()) layers)))
+(define rmv-layer (lambda (layers) (cdr layers)))
 
 ; lookup function; return value of var or if it is not declared yet (error) or novalue (for single-layered states in pt. 1)
 (define lookup
@@ -299,11 +297,10 @@
       ((eq? (operator stmt) 'begin)  (parse-block stmt state next return continue break throw)) ; For a block of code
       ((eq? (operator stmt) 'continue) (continue (rmv-layer state)))
       ((eq? (operator stmt) 'break)  (break (rmv-layer state)))
+      ((eq? (operator stmt) 'try)    (parse-try stmt state next return continue break throw))
       ((not (roperand? stmt)) (m-state (loperand stmt) state next return continue break throw)) ; no right operand
       (else (m-state (loperand stmt) state
                      (lambda (v1) (m-state (roperand stmt) (next v1) (lambda (v2) v2) return continue break throw)) return continue break throw))))) ; Else, it's m-int or m-bool with args to update
-
-
 
 ; bool-check checks if boolean operation is done (returns bool)
 (define bool-check
@@ -363,6 +360,7 @@
   (lambda (stmt state next)
     (cond
       ((not (exp-arg stmt)) (next (addbinding-layers (arg1 stmt) 'novalue state))) ; no assignment
+      ((find-var-layers (arg1 stmt) state) (error "redefining")) ; if the argument is already in the state, throw a redefining error
       (else                 (parse-asgn (arg1 stmt) (arg2 stmt) (addbinding-layers (arg1 stmt) 'novalue state) next)))))
 
 ; parse-if parses if statements
@@ -434,6 +432,13 @@
 (define curr-stmt (lambda (stmt) (if (null? stmt) stmt (car stmt))))
 (define empty-stmt (lambda (stmt) (if (null? stmt) #t #f)))
 (define next-stmts (lambda (stmt) (if (null? stmt) stmt (cdr stmt))))
-(define add-layer (lambda (layers) (cons '(() ()) layers)))
-(define rmv-layer (lambda (layers) (cdr layers)))
 (define keyword (lambda (stmt) (if (null? stmt) stmt (car stmt))))
+; Some also used for parse-try 
+
+; Parsing try/catch/finally blocks
+(define parse-try
+  (lambda (stmt state next return continue break throw)
+    (cond
+      ((null? stmt) '())
+      ((eq? 'try (curr-stmt stmt))))))
+

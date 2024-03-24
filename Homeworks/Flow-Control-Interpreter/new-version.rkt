@@ -45,10 +45,10 @@
 (check-expect (interpret "MakeTestsPart2/test8b.txt") 6)
 (check-expect (interpret "MakeTestsPart2/test9b.txt") -1)
 (check-expect (interpret "MakeTestsPart2/test10b.txt") 789)
-;(check-error (interpret "MakeTestsPart2/test11b.txt") "error")
-;(check-error (interpret "MakeTestsPart2/test12b.txt") "error")
-;(check-error (interpret "MakeTestsPart2/test13b.txt") "error")
-;(check-expect (interpret "MakeTestsPart2/test14b.txt") 12)
+(check-error (interpret "MakeTestsPart2/test11b.txt") "using before declaring")
+(check-error (interpret "MakeTestsPart2/test12b.txt") "using before declaring")
+(check-error (interpret "MakeTestsPart2/test13b.txt") "invalid break")
+(check-expect (interpret "MakeTestsPart2/test14b.txt") 12)
 ;(check-expect (interpret "MakeTestsPart2/test15b.txt") 125)
 ;(check-expect (interpret "MakeTestsPart2/test16b.txt") 110)
 ;(check-expect (interpret "MakeTestsPart2/test17b.txt") 2000400)
@@ -294,6 +294,8 @@
       ((eq? (operator stmt) 'return) (return (parse-return stmt state)))
       ((eq? (operator stmt) 'if)     (parse-if stmt state next return continue break))
       ((eq? (operator stmt) 'begin)  (parse-block stmt state next return continue break)) ; For a block of code
+      ((eq? (operator stmt) 'break)  (error "invalid break"))
+      ((eq? (operator stmt) 'continue) (error "invalid continue"))
       ((not (roperand? stmt)) (m-state (loperand stmt) state next return continue break)) ; no right operand
       (else (m-state (loperand stmt) state
                      (lambda (v1) (m-state (roperand stmt) (next v1) (lambda (v2) v2) return continue break)) return continue break))))) ; Else, it's m-int or m-bool with args to update

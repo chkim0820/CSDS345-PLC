@@ -1,12 +1,7 @@
 var x = 0;
-var y = x;
-var z = y;
-while (2 == 2) {
-  z = 2;
-  while (3 == 3) {
-      break;
-  }
-    break;
+while (x < 6) {
+  x = x + 1;
+  continue;
+  x = x + 100;
 }
-
-return x * 100 + y * 10 + z;
+return x;

@@ -77,7 +77,7 @@
       ((null? prog) (error "no return statement")) ; End of program. Give the return value. ;FIX?
       (else (m-state (curr-line prog) state
                      (lambda (new-state) (parse-prog (next-lines prog) new-state))
-                     (lambda (v) v) (lambda (v) v) (lambda (v) v)))))) ; Parse the next statement
+                     (lambda (v) v) (lambda (v) (error "invalid continue")) (lambda (v) (error "invalid break"))))))) ; Parse the next statement
 
 ; helper function for next program
 (define curr-line (lambda (prog) (if (null? prog) prog (car prog))))
@@ -290,12 +290,12 @@
       ((not (list? stmt))            (next state))
       ((eq? (operator stmt) '=)      (parse-asgn (arg1 stmt) (arg2 stmt) state next))
       ((eq? (operator stmt) 'var)    (parse-decl stmt state next))
-      ((eq? (operator stmt) 'while)  (parse-while stmt state next return continue break))
+      ((eq? (operator stmt) 'while)  (parse-while stmt state next return (lambda (v) v) (lambda (v) v)))
       ((eq? (operator stmt) 'return) (return (parse-return stmt state)))
       ((eq? (operator stmt) 'if)     (parse-if stmt state next return continue break))
       ((eq? (operator stmt) 'begin)  (parse-block stmt state next return continue break)) ; For a block of code
-      ((eq? (operator stmt) 'break)  (error "invalid break"))
-      ((eq? (operator stmt) 'continue) (error "invalid continue"))
+      ((eq? (operator stmt) 'continue) (continue (rmv-layer state)))
+      ((eq? (operator stmt) 'break)  (break (rmv-layer state)))
       ((not (roperand? stmt)) (m-state (loperand stmt) state next return continue break)) ; no right operand
       (else (m-state (loperand stmt) state
                      (lambda (v1) (m-state (roperand stmt) (next v1) (lambda (v2) v2) return continue break)) return continue break))))) ; Else, it's m-int or m-bool with args to update

@@ -49,9 +49,9 @@
 (check-expect (interpret "MakeTestsPart2/test15b.txt") 125)
 (check-expect (interpret "MakeTestsPart2/test16b.txt") 110)
 ;(check-expect (interpret "MakeTestsPart2/test17b.txt") 2000400)
-;(check-expect (interpret "MakeTestsPart2/test18b.txt") 101)
+(check-expect (interpret "MakeTestsPart2/test18b.txt") 101)
 ;(check-error (interpret "MakeTestsPart2/test19b.txt") "error")
-;(check-expect (interpret "MakeTestsPart2/test20b.txt") 21)
+(check-expect (interpret "MakeTestsPart2/test20b.txt") 21)
 
 
 ;============================================================================
@@ -219,18 +219,18 @@
       ((intexp? boolexp)            (m-int boolexp state)) ; handle intexps nested in boolean expressions
       ((or (is-asgn (loperand boolexp)) ; left or right operand is an assignment stmt
            (and (roperand? boolexp) (is-asgn (roperand boolexp))))
-       (m-bool (new-stmt (operator boolexp) (value-get (asgn-var (loperand boolexp)) (m-state (loperand boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))
-                        (value-get (asgn-var (roperand boolexp)) (m-state (roperand boolexp) (m-state (loperand boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)) (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5))))
-               (m-state (roperand boolexp) (m-state (loperand boolexp) state))))
-      ((eq? (operator boolexp) '&&) (and (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator boolexp) '==) (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator boolexp) '!=) (not (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5))))))
-      ((eq? (operator boolexp) '<)  (<   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator boolexp) '>)  (>   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator boolexp) '<=) (<=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator boolexp) '>=) (>=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5))))))))
+       (m-bool (new-stmt (operator boolexp) (value-get (asgn-var (loperand boolexp)) (m-state (loperand boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))
+                        (value-get (asgn-var (roperand boolexp)) (m-state (roperand boolexp) (m-state (loperand boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v))))
+               (m-state (roperand boolexp) (m-state (loperand boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v))))
+      ((eq? (operator boolexp) '&&) (and (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator boolexp) '||) (or  (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator boolexp) '!)  (not (m-bool (arg1 boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator boolexp) '==) (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator boolexp) '!=) (not (equal? (m-bool (arg1 boolexp) state) (m-bool (arg2 boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v))))))
+      ((eq? (operator boolexp) '<)  (<   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator boolexp) '>)  (>   (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator boolexp) '<=) (<=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator boolexp) '>=) (>=  (m-bool (loperand boolexp) state) (m-bool (roperand boolexp) (m-state (arg1 boolexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v))))))))
 
 (define asgn-var (lambda (stmt) (if (not (list? stmt)) stmt (arg1 stmt)))) ; returns the var of asgn
 (define new-stmt (lambda (oper left right) (list oper left right))) ; new statement w/o assignments
@@ -271,18 +271,18 @@
                                       (lookup-layers intexp state))) ; lookup variable value
       ((or (is-asgn (loperand intexp)) ; left or right operand is an assignment stmt
            (and (roperand? intexp) (is-asgn (roperand intexp))))
-       (m-int (new-stmt (operator intexp) (value-get (asgn-var (loperand intexp)) (m-state (loperand intexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))
-                        (value-get (asgn-var (roperand intexp)) (m-state (roperand intexp) (m-state (loperand intexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)) (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))) state))
-      ((and (eq? (operator intexp) '-) (unary? intexp)) (* '-1 (m-int (loperand intexp) (m-state (loperand intexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator intexp) '+) (+ (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator intexp) '-) (- (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator intexp) '*) (* (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator intexp) '/) (quotient (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5)))))
-      ((eq? (operator intexp) '%) (remainder (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5))))))))
+       (m-int (new-stmt (operator intexp) (value-get (asgn-var (loperand intexp)) (m-state (loperand intexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))
+                        (value-get (asgn-var (roperand intexp)) (m-state (roperand intexp) (m-state (loperand intexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))) state))
+      ((and (eq? (operator intexp) '-) (unary? intexp)) (* '-1 (m-int (loperand intexp) (m-state (loperand intexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator intexp) '+) (+ (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator intexp) '-) (- (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator intexp) '*) (* (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator intexp) '/) (quotient (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v)))))
+      ((eq? (operator intexp) '%) (remainder (m-int (loperand intexp) state) (m-int (roperand intexp) (m-state (loperand intexp) state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v))))))))
  
 ; Helper function for checking whether the expression is unary or not
 (define unary? (lambda (exp) (if (null? (cdr (cdr exp))) #t #f)))
-(define value-get (lambda (stmt state) (if (or (number? stmt) (boolean? stmt)) stmt (lookup stmt state)))) ; return value of input
+(define value-get (lambda (stmt state) (if (or (number? stmt) (boolean? stmt)) stmt (lookup-layers stmt state)))) ; return value of input
 
 ; m-state changes the state
 (define m-state
@@ -338,9 +338,9 @@
       ((boolean? expr)                     (next (updatebinding-layers var (bool-cvt expr) state))) ; assigning bool
       ((not (list? expr))                  (next (updatebinding-layers var (lookup-layers expr state) state))) ; variable
       ((bool-check (operator expr))        (next (updatebinding-layers var (bool-cvt (m-bool expr state))
-                                                       (m-state expr state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5))))) ; bool expr
+                                                       (m-state expr state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v))))) ; bool expr
       ((int-check (operator expr))         (next (updatebinding-layers var (m-int expr state) ; numerical expression
-                                                       (m-state expr state (lambda (v1) v1) (lambda (v2) v2) (lambda (v3) v3) (lambda (v4) v4) (lambda (v5) v5))))) 
+                                                       (m-state expr state (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v) (lambda (v) v))))) 
       (else                                (next (updatebinding-layers var ; handle assignment within assignment
                                                        (lookup-layers (arg1 expr) (parse-asgn (arg1 expr) (arg2 expr) state))
                                                        (parse-asgn (arg1 expr) (arg2 expr) state)))))))
@@ -370,7 +370,7 @@
     (cond
       ((m-bool (cond-stmt stmt) state)    (m-state (cond-stmt stmt) state (lambda (v) (m-state (then-stmt stmt) v (lambda (v1) (next v1)) return continue break throw)) return continue break throw))
       ((equal? 'no-else (else-stmt stmt)) (m-state (cond-stmt stmt) state (lambda (v) (next v)) return continue break throw)) ; conditional false and no else; no action
-      ((nested-if (else-stmt stmt))       (m-state (cond-stmt stmt) state (lambda (v) (parse-if (else-stmt stmt) v (lambda (v1) (next v1)) return continue break throw)))) ; nested if statements
+      ((nested-if (else-stmt stmt))       (m-state (cond-stmt stmt) state (lambda (v) (parse-if (else-stmt stmt) v (lambda (v1) (next v1)) return continue break throw)) return continue break throw)) ; nested if statements
       (else                               (m-state (cond-stmt stmt) state (lambda (v) (m-state (else-stmt stmt) v (lambda (v1) (next v1)) return continue break throw)) return continue break throw)))))  ; no nested if statements
 
 ; Helper functions for if statements to help with abstraction
@@ -446,9 +446,10 @@
        (define try-block (cons 'begin (curr-stmt (next-stmts stmt)))) ; i.e. ((= x 20) (if (< x 0) (throw 10)) (= x (+ x 5)))
        (define new-next (lambda (v) (m-state (finally-block stmt) v next return continue break throw)))
 
-   
+  
        (define new-throw (lambda (e st)
                            (m-state catch-block st next return continue break throw)))
+       
        (m-state try-block state new-next return continue break throw))))) ; beginning of try/catch/finally
 
 

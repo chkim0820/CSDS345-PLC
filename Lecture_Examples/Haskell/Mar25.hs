@@ -2,7 +2,6 @@
     input 'GHCI' to execute the file
     -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-import Data.Binary.Get (label)
 {-# HLINT ignore "Redundant lambda" #-}
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Use null" #-}

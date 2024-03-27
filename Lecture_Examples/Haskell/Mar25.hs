@@ -2,6 +2,7 @@
     input 'GHCI' to execute the file
     -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+import Data.Binary.Get (label)
 {-# HLINT ignore "Redundant lambda" #-}
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Use null" #-}
@@ -40,9 +41,36 @@ myappend2 =
 
 
 -- defining a function using pattern matching
-myappend3 [] l2 = l2
+myappend3 []    l2 = l2
 myappend3 (h:t) l2 = h : myappend3 t l2
 
 {- write squares:
     squares [1,2,3] => [1,4,9]
     write squares using all 3 methods -}
+
+
+{- removeall removes all of some element in a list -}
+removeall _ [] = [] -- underscore (_) is wildcard for "don't care"
+                    -- does not care what goes in there
+removeall x (h:t) = if (x == h)
+                        then 
+                            removeall x t
+                        else
+                            h : removeall x t
+
+{-
+removeall2 _ [] = []
+removeall2 x (x:t) = removeall x t -- not allowed; redefining
+-}
+
+-- write removeall using "guards"
+removeall2 _ [] = []
+removeall2 x (h:t)
+    | x == h    = removeall2 x t
+    | otherwise = h : removeall2 x t
+
+-- write replaceall using "guards" with pattern matching
+replaceall _ _ [] = [] -- return empty list if given empty list
+replaceall a b (h:t)
+    | a == h    = b : replaceall a b t
+    | otherwise = h : replaceall a b t

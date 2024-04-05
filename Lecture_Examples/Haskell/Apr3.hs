@@ -66,8 +66,8 @@ mapply ma f mb = do
     b <- mb
     return (f a b)
 
-in_order [] = []
-in_order [a] = return [a]
+in_order [] = False
+in_order [a] = True
 in_order (h1:(h2:t))
     | h1 <= h2  = in_order (h2:t)
     | otherwise = False

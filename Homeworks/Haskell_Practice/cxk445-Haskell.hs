@@ -115,12 +115,24 @@ testFun v ml f = do
     l <- ml
     if (f v) == True then return (v:l) else Nothing
 
-
-
+-- checklist for returning a list after testing each element
 checklist l f = checklist_cps l f (\v -> v)
 
 -- Helper CPS checklist function
 checklist_cps :: [a] -> (a -> Bool) -> (Maybe [a] -> Maybe [a]) -> Maybe [a]
 checklist_cps [] f cont = cont (Just [])
 checklist_cps (h:t) f cont = checklist_cps t f (\newList -> cont (testFun h newList f)) 
-    
+
+
+{- 8: checkappend
+        - Inputs: 2 Maybe lists, 1 test function
+        - Appends the first list to the second only if all characters of first list pass
+                - Returns Nothing if any character fails
+                        - The second list does not have to pass the test
+-}
+checkappend ml1 ml2 f = do
+    l1 <- ml1
+    l2 <- ml2
+    checkappend_cps l1 l2 f (\v -> v)
+checkappend_cps [] l2 f cont = cont (Just l2)
+checkappend_cps (h:t) l2 f cont = checkappend_cps t l2 f (\newList -> cont (testFun h newList f)) 

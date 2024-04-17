@@ -1,0 +1,7 @@
+#lang racket
+
+; Let's create the syntax "debug"
+; So if I have code like:
+;    (+ 1 (debug x))
+; this will print the contents of x while still using x in the addition
+

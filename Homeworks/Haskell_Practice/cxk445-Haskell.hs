@@ -7,6 +7,8 @@
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Use id" #-}
 {-# HLINT ignore "Use camelCase" #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
+{-# HLINT ignore "Use list literal" #-}
 
 {- 1: rotate
         - Inputs: 3 elements & 1 list
@@ -32,3 +34,37 @@ squareroot_cps val it return = squareroot_cps val (it - 1) (\old -> return (old 
         - Inputs: 1 list (non-empty list of numbers)
         - Returns the maximum value in the list
 -}
+
+
+
+
+
+
+{- 5: Creating a type that allows us to have nested lists -}
+-- Type ListElem has two possible constructors; Element and SubList
+data ListElememt t = Element t | SubList [ListElememt t] deriving (Show, Eq)
+
+-- Creating a function 'grotate' using ListElement type above
+grotate :: Eq a => a -> a -> a -> [ListElememt a] -> [ListElememt a] -- setting type
+grotate _ _ _ [] = []
+grotate a b c (h:t)
+    | (??) h                 = grotate a b c (getList h) ++ grotate a b c t
+    | (getElement h) == a    = (makeElement b) : grotate a b c t
+    | (getElement h) == b    = (makeElement c) : grotate a b c t
+    | (getElement h) == c    = (makeElement a) : grotate a b c t
+    | otherwise              = h : grotate a b c t
+--isSubList [a] -> Bool -- Replace this with your actual check for SubList type
+
+-- Below are operators to check if the input is SubList or not
+(??) :: ListElememt t -> Bool
+(??) (SubList a) = True
+(??) (Element a) = False
+-- returns the list inside the SubList object
+getList :: ListElememt t -> [ListElememt t]
+getList (SubList a) = a
+-- returns the element of ListElement object
+getElement :: ListElememt t -> t
+getElement (Element a) = a
+-- makes the input into a ListElement type
+makeElement :: t -> ListElememt t
+makeElement a = (Element a)

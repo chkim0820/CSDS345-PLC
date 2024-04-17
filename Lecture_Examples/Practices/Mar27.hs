@@ -34,5 +34,6 @@ merge_cps (h1:t1) (h2:t2) return
     | otherwise = merge_cps (h1:t1) t2 (\v -> return (h2 : v))
 
 -- mergesort_cps (split, sort each half, merge back)
-mergesort_cps [] return    = return []
-mergesort_cps l return = split_cps l (\v1 v2 -> return (merge_cps v1 v2 (\v -> )))
+--mergesort_cps [] return    = return []
+--mergesort_cps l return     = split_cps l (\v1 v2 -> return (merge_cps v1 v2 (\v -> )))
+

@@ -9,6 +9,9 @@
 {-# HLINT ignore "Use camelCase" #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 {-# HLINT ignore "Use list literal" #-}
+{-# HLINT ignore "Use <$>" #-}
+{-# HLINT ignore "Redundant ==" #-}
+{-# HLINT ignore "Use null" #-}
 
 {- 1: rotate
         - Inputs: 3 elements & 1 list
@@ -77,7 +80,7 @@ makeSubList a = (SubList a)
 {- 6: removeMin
         - Inputs: 1 tree
         - Returns the tree with the smallest value of the tree removed
- -}
+-}
 -- Defining the tree type
 data Tree t = Empty | Leaf t | InnerNode t (Tree t) (Tree t) deriving (Eq, Show)
 
@@ -100,3 +103,24 @@ convertToLeaf (Leaf a) = (Leaf a)
 convertToLeaf (InnerNode a l r)
     | l == Empty && r == Empty = (Leaf a)
     | otherwise                = (InnerNode a l r)
+
+
+{- 7: checklist
+        - Inputs: 1 list, 1 function
+        - Returns Nothing if the element in the list fail to pass the function
+                  the list if all the elements pass
+-}
+-- testFun tests if the character passes the test
+testFun v ml f = do
+    l <- ml
+    if (f v) == True then return (v:l) else Nothing
+
+
+
+checklist l f = checklist_cps l f (\v -> v)
+
+-- Helper CPS checklist function
+checklist_cps :: [a] -> (a -> Bool) -> (Maybe [a] -> Maybe [a]) -> Maybe [a]
+checklist_cps [] f cont = cont (Just [])
+checklist_cps (h:t) f cont = checklist_cps t f (\newList -> cont (testFun h newList f)) 
+    

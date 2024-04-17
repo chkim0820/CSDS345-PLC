@@ -12,6 +12,7 @@
 {-# HLINT ignore "Use <$>" #-}
 {-# HLINT ignore "Redundant ==" #-}
 {-# HLINT ignore "Use null" #-}
+{-# HLINT ignore "Avoid lambda" #-}
 
 {- 1: rotate
         - Inputs: 3 elements & 1 list
@@ -39,9 +40,20 @@ squareroot_cps val it return = squareroot_cps val (it - 1) (\old -> return (old 
         - Inputs: 1 list (non-empty list of numbers)
         - Returns the maximum value in the list
 -}
+listmax []    = 1
+listmax (h:t) = listmax_helper (h:t) h
+
+-- Helper function with the accumulator
+listmax_helper [] last_h = last_h -- last h was the biggest value
+listmax_helper (h:t) last_h
+    | t == []     = h      -- there's only 1 value left
+    | otherwise   = listmax_helper (filter (> h) t) h
 
 
-
+{- 4: removedups
+        - Inputs: 1 list
+        - Returns the list with all consecutive duplicate values removed
+-}
 
 
 
@@ -136,3 +148,9 @@ checkappend ml1 ml2 f = do
     checkappend_cps l1 l2 f (\v -> v)
 checkappend_cps [] l2 f cont = cont (Just l2)
 checkappend_cps (h:t) l2 f cont = checkappend_cps t l2 f (\newList -> cont (testFun h newList f)) 
+
+
+{- 9: sum_of_maxes 
+        - Inputs: 2 lists of lists of numbers
+        - Returns a single list of numbers
+-}

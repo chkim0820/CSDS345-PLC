@@ -41,14 +41,14 @@ squareroot_cps val it return = squareroot_cps val (it - 1) (\old -> return (old 
 
 
 {- 5: Creating a type that allows us to have nested lists -}
--- Type ListElem has two possible constructors; Element and SubList
+-- Type ListElement has two possible constructors; Element and SubList
 data ListElememt t = Element t | SubList [ListElememt t] deriving (Show, Eq)
 
 -- Creating a function 'grotate' using ListElement type above
 grotate :: Eq a => a -> a -> a -> [ListElememt a] -> [ListElememt a] -- setting type
 grotate _ _ _ [] = []
 grotate a b c (h:t)
-    | (??) h                 = grotate a b c (getList h) ++ grotate a b c t
+    | (??) h                 = (makeSubList (grotate a b c (getList h))) : grotate a b c t
     | (getElement h) == a    = (makeElement b) : grotate a b c t
     | (getElement h) == b    = (makeElement c) : grotate a b c t
     | (getElement h) == c    = (makeElement a) : grotate a b c t
@@ -68,3 +68,6 @@ getElement (Element a) = a
 -- makes the input into a ListElement type
 makeElement :: t -> ListElememt t
 makeElement a = (Element a)
+-- returns the SubList from a list
+makeSubList :: [ListElememt t] -> ListElememt t
+makeSubList a = (SubList a)

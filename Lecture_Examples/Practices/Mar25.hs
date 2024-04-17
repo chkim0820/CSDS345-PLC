@@ -3,6 +3,7 @@
 
 {- write append three ways; first the "normal" way -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+import GHC.IO.Handle (hGetChar)
 {-# HLINT ignore "Use null" #-}
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Redundant lambda" #-}
@@ -39,8 +40,29 @@ myappend3 [] l    = l
 myappend3 (h:t) l = h : myappend3 t l
 
 
+{- reverse a list -}
+-- typematching
+myreverse1 []    = []
+myreverse1 (h:t) = (myreverse1 t) ++ [h] -- ++ is for append
 
+-- function composition
+myreverse2 []    = []
+myreverse2 (h:t) = ((++) . myreverse2) t [h] -- append with myreverse
 
+{- remove all copies of an element from a list -}
+removeall a [] = []
+removeall a (h:t) =
+    if h == a
+        then 
+            removeall a t
+        else
+            h : removeall a t
+
+{- removeall using pattern matching and a "guard" -}
+removeall2 _ [] = []
+removeall2 a (h:t) -- cannot do (a:t)
+    | a == h    = removeall2 a t
+    | otherwise = h : removeall2 a t
 
 
 
@@ -66,3 +88,20 @@ squares2 =
 -- pattern matching
 squares3 [] = []
 squares3 (h:t) = (h * h) : squares3 t
+
+-- replaceall
+replaceall3 _ _ [] = []
+replaceall3 a b (h:t)
+    | a == h    = b : replaceall3 a b t
+    | otherwise = h : replaceall3 a b t
+
+-- merge
+merge [] l = l
+merge l [] = l
+merge (h1:t1) (h2:t2)
+    | h1 < h2 = h1 : merge t1 (h2:t2)
+    | otherwise = h2 : merge (h1:t1) t2
+
+-- len
+len []    = 0
+len (h:t) = ((+) 1 . len) t

@@ -182,10 +182,10 @@ data List t = Pair t (List t) | Null deriving (Show, Eq)
 lreturn x = (Pair x Null)
 
 -- binding function 
-lbind :: Eq t1 => List t1 -> (t1 -> List t2) -> List t2
 lbind Null _ = Null
 lbind (Pair a b) f
     | b == Null  = f a
     | otherwise  = (Pair (listVal (f a)) (lbind b f))
 
+-- Helper function that returns the value of the Pair
 listVal (Pair a b) = a

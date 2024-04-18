@@ -15,6 +15,7 @@
 {-# HLINT ignore "Avoid lambda" #-}
 {-# HLINT ignore "Avoid lambda using `infix`" #-}
 {-# HLINT ignore "Redundant if" #-}
+{-# HLINT ignore "Eta reduce" #-}
 
 
 {- 1: rotate
@@ -165,3 +166,26 @@ checkappend_cps (h:t) l2 f cont = checkappend_cps t l2 f (\newList -> cont (test
         - Inputs: 2 lists of lists of numbers
         - Returns a single list of numbers
 -}
+
+
+
+{- 10: lists as monads
+        - Create a list monad that generalizes a list
+-}
+
+{- We will create a 'Value' monad that has a context to determine if the value is valid -}
+-- a list monad generalizing a list
+data List t = Pair t (List t) | Null deriving (Show, Eq)
+
+-- return function to make a List monad
+-- assume it only takes in one input (as shown in the example)
+lreturn x = (Pair x Null)
+
+-- binding function 
+lbind :: Eq t1 => List t1 -> (t1 -> List t2) -> List t2
+lbind Null _ = Null
+lbind (Pair a b) f
+    | b == Null  = f a
+    | otherwise  = (Pair (listVal (f a)) (lbind b f))
+
+listVal (Pair a b) = a

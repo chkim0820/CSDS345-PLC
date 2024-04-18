@@ -13,6 +13,8 @@
 {-# HLINT ignore "Redundant ==" #-}
 {-# HLINT ignore "Use null" #-}
 {-# HLINT ignore "Avoid lambda" #-}
+{-# HLINT ignore "Avoid lambda using `infix`" #-}
+{-# HLINT ignore "Redundant if" #-}
 
 {- 1: rotate
         - Inputs: 3 elements & 1 list
@@ -54,7 +56,8 @@ listmax_helper (h:t) last_h
         - Inputs: 1 list
         - Returns the list with all consecutive duplicate values removed
 -}
-
+removedups []    = []
+removedups (h:t) = foldr (\x lis -> if (lis == [] || (head lis) /= x) then x : lis else lis) [] (h:t)
 
 
 {- 5: Creating a type that allows us to have nested lists & grotate method with sublists -}

@@ -3,7 +3,7 @@
     Description: For CSDS 345 Haskell practice assignment
 -}
 
--- DELETE? 
+-- DELETE? FOR UNNECESSARY WARNINGS
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Use id" #-}
@@ -48,6 +48,7 @@ squareroot_cps val it return = squareroot_cps val (it - 1) (\old -> return (old 
 -}
 listmax []    = 1
 listmax (h:t) = listmax_helper (h:t) h
+
 -- Helper function with the accumulator
 listmax_helper [] last_h = last_h -- last h was the biggest value
 listmax_helper (h:t) last_h

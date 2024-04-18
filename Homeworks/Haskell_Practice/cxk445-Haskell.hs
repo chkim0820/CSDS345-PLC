@@ -3,6 +3,7 @@
     Description: For CSDS 345 Haskell practice assignment
 -}
 
+-- DELETE? 
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Use id" #-}
@@ -165,8 +166,50 @@ checkappend_cps (h:t) l2 f cont = checkappend_cps t l2 f (\newList -> cont (test
 {- 9: sum_of_maxes 
         - Inputs: 2 lists of lists of numbers
         - Returns a single list of numbers
+                - The kth value of the output list is the sum of two largest values from kth sublists
+        - Fails if:
+                - Any sublist is empty; no maximum value
+                - Each input list has a different # of sublists
+        - Use the Maybe monad of Haskell
+                - Return Just [list] or Nothing
 -}
+-- The base methods; handle cases where one of the two lists are empty & call helper methods with Maybe lists
+sum_of_maxes [] (h:t) = Nothing
+sum_of_maxes (h:t) [] = Nothing
+sum_of_maxes l1 l2 = list_max_sums (Just l1) (Just l2)
 
+-- returns the list sum of the sublists' max values in Monads
+list_max_sums ml1 ml2 = do
+    l1 <- ml1
+    l2 <- ml2
+    if l1 == [] && l2 == []
+        then 
+            return []
+        else if l1 == [] || l2 == []
+            then 
+                Nothing
+            else if (head l1) == [] || (head l2) == []
+                then 
+                    Nothing
+                else 
+                    return_list_max (maxSum (head l1) (head l2)) (list_max_sums (Just (tail l1)) (Just (tail l2)))
+                    -- return ((maxSum (head l1) (head l2)) : (get_list_val (list_max_sums (Just (tail l1)) (Just (tail l2)))))
+        
+-- returns the value (list) of Monad  
+get_list_val (Just a) = a
+
+-- returns the sum of the two maxes of sublists
+maxSum (h1:t1) (h2:t2) = (max_list (h1:t1) h1) + (max_list (h2:t2) h2)
+
+-- returns the max value from a list
+max_list [] acc = acc
+max_list (h:t) acc
+    | h > acc   = max_list t h
+    | otherwise = max_list t acc
+
+-- returns the Monad version of the return value
+return_list_max _ Nothing = Nothing
+return_list_max l1 ml2 = return (l1 : (get_list_val ml2))
 
 
 {- 10: lists as monads

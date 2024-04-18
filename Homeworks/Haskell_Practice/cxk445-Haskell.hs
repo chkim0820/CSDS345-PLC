@@ -16,6 +16,7 @@
 {-# HLINT ignore "Avoid lambda using `infix`" #-}
 {-# HLINT ignore "Redundant if" #-}
 
+
 {- 1: rotate
         - Inputs: 3 elements & 1 list
         - Returns a list where each occurrence of the first element is replaced by the second, etc.
@@ -33,8 +34,9 @@ rotate a b c (h:t)
         - Returns the squareroot using Newton's iteration rounds
 -}
 squareroot val it = squareroot_cps val it (\v -> v)
+
 -- Helper function for running squareroot in cps
-squareroot_cps val 0 return = return val
+squareroot_cps val 0 return  = return val
 squareroot_cps val it return = squareroot_cps val (it - 1) (\old -> return (old - ((old * old) - val) / (2 * old)))
 
 
@@ -44,12 +46,11 @@ squareroot_cps val it return = squareroot_cps val (it - 1) (\old -> return (old 
 -}
 listmax []    = 1
 listmax (h:t) = listmax_helper (h:t) h
-
 -- Helper function with the accumulator
 listmax_helper [] last_h = last_h -- last h was the biggest value
 listmax_helper (h:t) last_h
-    | t == []     = h      -- there's only 1 value left
-    | otherwise   = listmax_helper (filter (> h) t) h
+    | t == []   = h      -- there's only 1 value left
+    | otherwise = listmax_helper (filter (> h) t) h
 
 
 {- 4: removedups
@@ -78,15 +79,19 @@ grotate a b c (h:t)
 (??) :: ListElememt t -> Bool
 (??) (SubList a) = True
 (??) (Element a) = False
+
 -- returns the list inside the SubList object
 getList :: ListElememt t -> [ListElememt t]
 getList (SubList a) = a
+
 -- returns the element of ListElement object
 getElement :: ListElememt t -> t
 getElement (Element a) = a
+
 -- makes the input into a ListElement type
 makeElement :: t -> ListElememt t
 makeElement a = (Element a)
+
 -- returns the SubList from a list
 makeSubList :: [ListElememt t] -> ListElememt t
 makeSubList a = (SubList a)
@@ -101,19 +106,20 @@ data Tree t = Empty | Leaf t | InnerNode t (Tree t) (Tree t) deriving (Eq, Show)
 
 -- removeMin function
 removeMin :: Eq t => Tree t -> Tree t
-removeMin Empty = Empty
+removeMin Empty    = Empty
 removeMin (Leaf a) = Empty
 removeMin (InnerNode a l r)
-    | l == Empty = convertToLeaf (InnerNode (getMin r) Empty (removeMin r)) -- get right's smallest value & make that the root 
-    | otherwise  = convertToLeaf (InnerNode a (removeMin l) r)
+    | l == Empty   = convertToLeaf (InnerNode (getMin r) Empty (removeMin r)) -- get right's smallest value & make that the root 
+    | otherwise    = convertToLeaf (InnerNode a (removeMin l) r)
 
 -- helper function to return the smallest value in the tree
-getMin (Leaf a) = a
+getMin (Leaf a)  = a
 getMin (InnerNode a l r)
     | l == Empty = a
     | otherwise  = getMin l
+
 -- Converts to a leaf if an InnerNode has empty left and right leaf nodes
-convertToLeaf Empty = Empty
+convertToLeaf Empty    = Empty
 convertToLeaf (Leaf a) = (Leaf a)
 convertToLeaf (InnerNode a l r)
     | l == Empty && r == Empty = (Leaf a)
@@ -135,7 +141,7 @@ checklist l f = checklist_cps l f (\v -> v)
 
 -- Helper CPS checklist function
 checklist_cps :: [a] -> (a -> Bool) -> (Maybe [a] -> Maybe [a]) -> Maybe [a]
-checklist_cps [] f cont = cont (Just [])
+checklist_cps [] f cont    = cont (Just [])
 checklist_cps (h:t) f cont = checklist_cps t f (\newList -> cont (testFun h newList f)) 
 
 
@@ -149,7 +155,9 @@ checkappend ml1 ml2 f = do
     l1 <- ml1
     l2 <- ml2
     checkappend_cps l1 l2 f (\v -> v)
-checkappend_cps [] l2 f cont = cont (Just l2)
+
+-- Helper function for implementing cps
+checkappend_cps [] l2 f cont    = cont (Just l2)
 checkappend_cps (h:t) l2 f cont = checkappend_cps t l2 f (\newList -> cont (testFun h newList f)) 
 
 

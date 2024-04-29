@@ -1,17 +1,28 @@
-var a = 10;
-var b = 20;
+function f(n) {
+  var a;
+  var b;
+  var c;
 
-function bmethod() {
-  var b = 30;
-  return a + b;
+  a = 2 * n;
+  b = n - 10;
+
+  function g(x) {
+    var a;
+    a = x + 1;
+    b = 100;
+    return a;
+  }
+
+  if (b == 0)
+    c = g(a);
+  else
+    c = a / b;
+  return a + b + c;
 }
 
-function cmethod() {
-  var a = 40;
-  return bmethod() + a + b;
-}
+function main() {
+  var x = f(10);
+  var y = f(20);
 
-function main () {
-  var b = 5;
-  return cmethod() + a + b;
+  return x - y;
 }

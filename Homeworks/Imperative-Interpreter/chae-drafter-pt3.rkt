@@ -146,7 +146,7 @@
       ;((< counter 0) (cons (add-after-funcall (curr-layer old-state) (curr-layer new-state)) (update-global-vars (next-layers old-state) (next-layers new-state) counter return)))
       ((and (eq? counter 0) (or (eq? return 'func-cont) (eq? return 'func-end))) (cons (add-after-funcall (curr-layer old-state) (curr-layer new-state)) (update-global-vars (next-layers old-state) (next-layers new-state) func-name closure (- counter 1) return)))
       ((eq? counter 0) (cons (update-helper (add-curr-func-def func-name closure (curr-layer old-state)) (curr-layer new-state) (lambda (v) v)) (next-layers new-state)));(update-global-vars (next-layers old-state) (next-layers new-state) (- counter 1) return)))
-      ((> counter 0) (cons (curr-layer new-state) (update-global-vars old-state (next-layers new-state) func-name closure (- counter 1) return))))))
+      ((> counter 0) (update-global-vars old-state (next-layers new-state) func-name closure (- counter 1) return)))))
 
 ; add the function definition to the state
 (define add-curr-func-def
@@ -571,19 +571,13 @@
 (define next-block
   (lambda (stmt layers next return continue break throw)
     (cond
-      ((and (eq? 'funcall (operator (curr-stmt stmt))) (eq? return 'func-cont))
-       (m-state (curr-stmt stmt) layers
-                (lambda (state) (end-of-funcall (next-stmts stmt) layers state next 'func-cont continue break throw))
-                return continue break throw))
       ((eq? 'funcall (operator (curr-stmt stmt)))
-       (m-state (curr-stmt stmt) layers
-                (lambda (state) (end-of-funcall (next-stmts stmt) layers state next 'no-return continue break throw))
-                'no-return continue break throw)) ; return functions different; 'func-cont if next is also function call
-                                                  ; in the next continuation function, update state to have updated global variables                       
-      (else
-       (m-state (curr-stmt stmt) layers
+      (m-state (curr-stmt stmt) layers
                 (lambda (state) (parse-block (next-stmts stmt) state next return continue break throw))
-                return continue break throw)))))
+                'no-return continue break throw))
+      (else (m-state (curr-stmt stmt) layers
+                     (lambda (state) (parse-block (next-stmts stmt) state next return continue break throw))
+                     return continue break throw)))))
 
 ; adjusts the next function dependong on whether the next function is a function call or not
 (define end-of-funcall

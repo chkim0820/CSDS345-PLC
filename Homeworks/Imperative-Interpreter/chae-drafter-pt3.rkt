@@ -26,7 +26,7 @@
 (define parse-prog
   (lambda (prog state)
     (cond
-      ((null? prog) (m-value '(funcall main) (add-layer state) ; run the main function
+      ((null? prog) (m-value '(funcall main) state ; run the main function
                              (lambda (v) v) ; initializing next
                              (lambda (v) v)
                              (lambda (v) (error "invalid continue"))
@@ -118,11 +118,7 @@
       ((and (eq? ind 0) (not (eq? (length (formal-params closure)) (length actual-params))))
        (error "mismatched parameters and arguments"))
       ;; For initializing new state for running a function with static scoping, add the current layer of the outer function.
-      ((null? actual-params) (add-layer (parse-decl (list 'var name closure) ; add current function's closure
-                                                    (update-global-vars old-state new-state return ; should not disturb the original order
-                                                                        (base-layer old-state (length old-state))
-                                                                        (base-layer new-state (length new-state)))
-                                          (lambda(v)v) (lambda(v)v) (lambda(v)v) (lambda(v)v) (lambda(v)v))))
+      ((null? actual-params) (add-layer (update-global-vars old-state new-state name closure (- (depth new-state) (depth old-state)) return)))
       ;; For binding actual and formal parameter, use the state of the function current function is called from
       ((num? (curr-actual actual-params)) ; number or numerical expression as param input
        (addbinding-layers (curr-formal (formal-params closure) ind)
@@ -141,23 +137,31 @@
       (else               (error "invalid input to the function parameters")))))
 
 ; updating the global variables from new state
+; old state is the definition in the closure
+; new state is the state up to the point up to the funcall
 (define update-global-vars
-  (lambda (old-state new-state return old-base new-base)
+  (lambda (old-state new-state func-name closure counter return)
     (cond
-      ((not (null? (cdr old-state))) (cons (car old-state) (update-global-vars (cdr old-state) new-state return old-base new-base)))
-      ((or (eq? return 'func-cont) (eq? return 'func-end)) (list (update-all-vars old-base new-base (lambda(v)v))))
-      (else (list (update-helper old-base new-base (lambda(v)v)))))))
- 
+      ((empty-layers old-state) old-state)
+      ;((< counter 0) (cons (add-after-funcall (curr-layer old-state) (curr-layer new-state)) (update-global-vars (next-layers old-state) (next-layers new-state) counter return)))
+      ((and (eq? counter 0) (or (eq? return 'func-cont) (eq? return 'func-end))) (cons (add-after-funcall (curr-layer old-state) (curr-layer new-state)) (update-global-vars (next-layers old-state) (next-layers new-state) func-name closure (- counter 1) return)))
+      ((eq? counter 0) (cons (update-helper (add-curr-func-def func-name closure (curr-layer old-state)) (curr-layer new-state) (lambda (v) v)) (next-layers new-state)));(update-global-vars (next-layers old-state) (next-layers new-state) (- counter 1) return)))
+      ((> counter 0) (cons (curr-layer new-state) (update-global-vars old-state (next-layers new-state) func-name closure (- counter 1) return))))))
+
+; add the function definition to the state
+(define add-curr-func-def
+  (lambda (func-name closure state)
+    (addbinding func-name closure state)))
+
 ; helper method for update-global-vars; returns the updated base state
 (define update-helper
   (lambda (old-base new-base return)
     (cond
       ((or (empty-state old-base) (empty-state new-base)) (return old-base))
-      ((modify? old-base new-base return)
-       (update-helper (next-state old-base) (next-state new-base)
-                      (lambda (base) (return (updatebinding (get-var old-base) (lookup (get-var old-base) new-base) base)))))
-      (else (update-helper (next-state old-base) (next-state new-base)
-                           (lambda (base) (return (addbinding (get-var old-base) (get-val old-base) base))))))))
+      ((find-var (get-var old-base) new-base)
+       (update-helper (next-state old-base) new-base
+                      (lambda (base) (return (addbinding (get-var old-base) (lookup (get-var old-base) new-base) base)))))
+      (else (update-helper (next-state old-base) new-base return)))))
  
 ; helper method for checking if variable exists in both states & values not equal & modifiable following static scoping
 (define modify?
@@ -177,7 +181,6 @@
                       (lambda (base) (return (addbinding (get-var old-base) (lookup (get-var old-base) new-base) base)))))
       (else (update-all-vars (next-state old-base) new-base
                            (lambda (base) (return (addbinding (get-var old-base) (get-val old-base) base))))))))
- 
 
 ; returns whether the variable given is already in scope for both old and new bases
 (define var-exists?
@@ -269,15 +272,15 @@
       ((equal? (lookup-layers var state) 'not-initialized) (error "Variable not declared yet")) ; var not declared yet
       ((funcall? var)                      (error "attempted to assign value to a function call"))
       ((funcall? expr)                     (m-value expr state
-                                                    (lambda (st) (next (updatebinding-layers var (m-value expr state 'debug return continue break throw) st)))
+                                                    (lambda (st) (next (addbinding-layers var (m-value expr state 'debug return continue break throw) st)))
                                                     'no-return continue break throw))
-      ((number? expr)                      (next (updatebinding-layers var expr state))) ; assigning int
-      ((boolean? expr)                     (next (updatebinding-layers var (bool-cvt expr) state))) ; assigning bool
-      ((not (list? expr))                  (next (updatebinding-layers var (lookup-layers expr state) state))) ; variable
-      ((bool-check (operator expr))        (next (updatebinding-layers var (make-boolean expr state) (update-state expr state (lambda(v)v) continue break throw))))                                             
-      ((int-check (operator expr))         (next (updatebinding-layers var (m-int expr state (lambda(v)v) (lambda(v)v) continue break throw)
+      ((number? expr)                      (next (addbinding-layers var expr state))) ; assigning int
+      ((boolean? expr)                     (next (addbinding-layers var (bool-cvt expr) state))) ; assigning bool
+      ((not (list? expr))                  (next (addbinding-layers var (lookup-layers expr state) state))) ; variable
+      ((bool-check (operator expr))        (next (addbinding-layers var (make-boolean expr state) (update-state expr state (lambda(v)v) continue break throw))))                                             
+      ((int-check (operator expr))         (next (addbinding-layers var (m-int expr state (lambda(v)v) (lambda(v)v) continue break throw)
                                                                        (update-state expr state (lambda(v)v) continue break throw))))                                              
-      ((eq? '= (operator expr))            (next (updatebinding-layers var ; handle assignment within assignment
+      ((eq? '= (operator expr))            (next (addbinding-layers var ; handle assignment within assignment
                                                                        (lookup-layers (arg1 expr)
                                                                                       (parse-asgn (arg1 expr) (arg2 expr) state
                                                                                                    (lambda(v)v) (lambda(v)v) continue break throw))
@@ -329,12 +332,24 @@
 (define parse-block
   (lambda (stmt layers next return continue break throw) ; assume layers are inputted
     (cond
-      ((empty-stmt stmt)                            (next (rmv-layer layers))) ; remove the current layer at the end of block
+      ((empty-stmt stmt)                            (next (pushdown-layer layers))) ; remove the current layer at the end of block
       ((fun-block stmt)                             (parse-block (next-fun-stmts stmt) layers next return continue break throw))
       ((eq? 'begin (curr-stmt stmt))                (parse-block (next-stmts stmt) (add-layer layers) next return continue break throw))
-      ((eq? 'continue (keyword (curr-stmt stmt)))   (continue (rmv-layer layers)))
-      ((eq? 'break (keyword (curr-stmt stmt)))      (break (rmv-layer layers)))
+      ((eq? 'continue (keyword (curr-stmt stmt)))   (continue (pushdown-layer layers)))
+      ((eq? 'break (keyword (curr-stmt stmt)))      (break (pushdown-layer layers)))
       (else                                         (next-block stmt layers next return continue break throw))))) ; parse next in the block
+
+; push down the current layer's values to the lower layers
+(define pushdown-layer
+  (lambda (layers)
+    (pushdown-helper (curr-layer layers) (next-layers layers))))
+
+(define pushdown-helper
+  (lambda (top-layer bottom-layers)
+    (cond
+      ((empty-state top-layer) bottom-layers)
+      ((has-binding (get-var top-layer) bottom-layers) (pushdown-helper (next-state top-layer) (updatebinding-layers (get-var top-layer) (get-val top-layer) bottom-layers)))
+      (else (pushdown-helper (next-state top-layer) bottom-layers)))))
 
 ; returns true if the current block is a function block
 (define fun-block

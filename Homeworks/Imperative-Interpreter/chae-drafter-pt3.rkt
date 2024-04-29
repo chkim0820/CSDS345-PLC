@@ -364,8 +364,17 @@
   (lambda (top-layer bottom-layers)
     (cond
       ((empty-state top-layer) bottom-layers)
-      ((has-binding (get-var top-layer) bottom-layers) (pushdown-helper (next-state top-layer) (updatebinding-layers (get-var top-layer) (get-val top-layer) bottom-layers)))
+      ((has-binding (get-var top-layer) bottom-layers)
+       (pushdown-helper (next-state top-layer) (updatebinding-all-layers (get-var top-layer) (get-val top-layer) bottom-layers (lambda(v)v)))) ; change to updatebinding-layers?
       (else (pushdown-helper (next-state top-layer) bottom-layers)))))
+
+(define updatebinding-all-layers
+  (lambda (var val layers return)
+    (cond
+      ((empty-layers layers) (return layers))
+      ((find-var var (curr-layer layers)) (updatebinding-all-layers var val (next-layers layers)
+                                                                    (lambda (v) (return (cons (updatebinding var val (curr-layer layers)) v)))))
+      (else (updatebinding-all-layers var val (next-layers layers) (lambda (v) (return (cons (curr-layer layers) v))))))))
 
 ; returns true if the current block is a function block
 (define fun-block

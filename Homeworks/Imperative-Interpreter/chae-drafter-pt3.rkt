@@ -332,17 +332,33 @@
 (define parse-block
   (lambda (stmt layers next return continue break throw) ; assume layers are inputted
     (cond
-      ((empty-stmt stmt)                            (next (pushdown-layer layers))) ; remove the current layer at the end of block
-      ((fun-block stmt)                             (parse-block (next-fun-stmts stmt) layers next return continue break throw))
-      ((eq? 'begin (curr-stmt stmt))                (parse-block (next-stmts stmt) (add-layer layers) next return continue break throw))
+      ((empty-stmt stmt)                            (next layers)) ; remove the current layer at the end of block
+      ((fun-block stmt)                             (parse-block (next-fun-stmts stmt) layers (lambda (new-st) (next (pushdown-layer stmt new-st))) return continue break throw))
+      ((eq? 'begin (curr-stmt stmt))                (parse-block (next-stmts stmt) (add-layer layers) (lambda (new-st) (next (pushdown-layer stmt new-st))) return continue break throw))
       ((eq? 'continue (keyword (curr-stmt stmt)))   (continue (pushdown-layer layers)))
       ((eq? 'break (keyword (curr-stmt stmt)))      (break (pushdown-layer layers)))
       (else                                         (next-block stmt layers next return continue break throw))))) ; parse next in the block
+; for names not passing down, make next continuation where those names are taken out (var and formal params)
+(define takeout-vars
+  (lambda (list state)
+    (cond
+      ((or (null? list) (empty-state state)) state)
+      ((find-var (car list) state) (takeout-vars (cdr list) (removebinding (car list) state)))
+      (else (addbinding (get-var state) (get-val state) (takeout-vars (cdr list) (next-state state)))))))
+
+(define list-to-eliminate
+  (lambda (stmt)
+    (cond
+      ((null? stmt) '())
+      ((fun-block stmt) (list-to-eliminate (next-fun-stmts stmt)))
+      ((eq? 'begin (curr-stmt stmt)) (list-to-eliminate (next-stmts stmt)))
+      ((eq? 'var (keyword (curr-stmt stmt))) (cons (arg1 (curr-stmt stmt)) (list-to-eliminate (next-stmts stmt))))
+      (else (list-to-eliminate (next-stmts stmt))))))
 
 ; push down the current layer's values to the lower layers
 (define pushdown-layer
-  (lambda (layers)
-    (pushdown-helper (curr-layer layers) (next-layers layers))))
+  (lambda (stmt layers)
+    (pushdown-helper (takeout-vars (list-to-eliminate stmt) (curr-layer layers)) (next-layers layers))))
 
 (define pushdown-helper
   (lambda (top-layer bottom-layers)

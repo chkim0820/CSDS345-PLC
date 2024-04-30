@@ -1,5 +1,5 @@
 #lang racket
-(require "classParser.rkt")
+(require "functionParser.rkt")
 (require test-engine/racket-tests)
 
 ; Authors: Chae Kim, Amir Aliyu
@@ -10,144 +10,39 @@
 ; INTERPRET (MAIN) FUNCTION
 ;============================================================================
 
+; interpret takes a filename, calls parser with the filename, evaluates the syntax tree
+; returned by parser, and returns the proper value.
 (define interpret
-  (lambda (filename classname)
-    (parse-prog (parser filename) (string->symbol classname) '((()()))))) ; the layer contains the initial state (expressed with [])
+  (lambda (filename)
+    (parse-prog (parser filename) '[((true false) (#t #f))]))) ; the layer contains the initial state (expressed with [])
+                                                                              ; the initial state is a list with 2 sublists
+                                                                              ; true or false stored as default
 
 ;============================================================================
 ; PROGRAM PARSER 
 ;============================================================================
-; parse-program goes through the entire program and creates a closure for every class, returns all the closures
+
 ; parse-prog takes a list representing a syntax tree and returns the proper value (or error).
 (define parse-prog
-  (lambda (prog classname state)
+  (lambda (prog state)
     (cond
-      ((null? prog) (m-class classname state ; run the main function in the specified class
+      ((null? prog) (m-value '(funcall main) (add-layer state) ; run the main function
                              (lambda (v) v) ; initializing next
                              (lambda (v) v)
                              (lambda (v) (error "invalid continue"))
                              (lambda (v) (error "invalid break"))
                              (lambda (v1 v2) (error "error thrown"))))
-      (else (outer-classes (curr-line prog) state
-                           (lambda (new-state) (parse-prog (next-lines prog) classname new-state))
-                           (lambda (v) v)
-                           (lambda (v) (error "invalid continue"))
-                           (lambda (v) (error "invalid break"))
-                           (lambda (v1 v2) (error "error thrown")))))))
-
-(define m-class
-  (lambda (classname state next return continue break throw)
-    (m-value '(funcall main) (new-state (caddr (lookup-layers classname state)) state) next return continue break throw)))
-
-(define new-state
-  (lambda (state classes)
-    (cond
-      ((null? state) classes)
-      (else (cons (curr-layer state) (addbinding-layers 'this state (new-state (next-layers state) classes)))))))
-
-(define outer-classes
-  (lambda (stmt state next return continue break throw)
-    (cond
-      ((eq? (operator stmt) 'class) (parse-class stmt state next return continue break throw))
-      (else (error "Only classes allowed on the base layer")))))
-
-(define parse-class
-  (lambda (stmt state next return continue break throw)
-    (parse-decl (class-closure stmt '[((true false) (#t #f))]) state next return continue break throw)))
-
-(define class-closure
-  (lambda (stmt state)
-    (list 'var (class-name stmt) (list (class-superclass stmt) ; superclass, variables, and function closure
-                                       (class-body stmt)
-                                       (run-outer-layer (class-body stmt) state)))))
-
-(define run-outer-layer
-  (lambda (stmt state)
-    (cond
-      ((null? stmt) state)
-      (else (outer-layer (curr-line stmt) state
-                         (lambda (new-state) (run-outer-layer (next-lines stmt) new-state))
-                         (lambda (v) v)
-                         (lambda (v) (error "invalid continue"))
-                         (lambda (v) (error "invalid break"))
-                         (lambda (v1 v2) (error "error thrown")))))))
-
-; outer-layer does m-state functions for variable declarations and function definitions
-(define outer-layer
-  (lambda (stmt state next return continue break throw)
-    (cond
-      ((not (list? stmt))                     (next state)) ; at the end; will call main-method
-      ((eq? (operator stmt) 'var)             (parse-decl stmt state next return continue break throw))
-      ((eq? (operator stmt) 'function) (parse-func stmt state next return continue break throw))
-      ((eq? (operator stmt) 'static-function) (parse-func stmt state next return continue break throw))
-      (else                                   (error "Only function calls and assignments allowed on the base layer"))))) ; Else, it's m-int or m-bool with args to update
+      (else         (outer-layer (curr-line prog) state ; handle the outer layer
+                                 (lambda (new-state) (parse-prog (next-lines prog) new-state))
+                                 (lambda (v) v)
+                                 (lambda (v) (error "invalid continue"))
+                                 (lambda (v) (error "invalid break"))
+                                 (lambda (v1 v2) (error "error thrown"))))))) ; Parse the next statement
 
 ; helper function for next program
 (define curr-line (lambda (prog) (if (null? prog) prog (car prog))))
 (define next-lines (lambda (prog) (if (null? prog) prog (cdr prog))))
 
-;============================================================================
-; CLASS PROCESSING
-;============================================================================
-; instance closure - return class and variables of the class
-
-(define instance-closure
-  (lambda (stmt)
-    (list (class-name stmt) (class-vars (class-body stmt)))))
-
-(define dot-expression-instance
-  (lambda (dotexp state)
-    (instance-closure state)))
-
-; the class name
-(define class-name (lambda (stmt) (cadr stmt)))
-
-; the class body (includes instance fields, functions)
-(define class-body (lambda (stmt) (cadddr stmt)))
-
-; the class superclass
-(define class-superclass
-  (lambda (stmt)
-    (cond
-     ((has-superclass stmt)  (car (cdr (car (cdr (cdr stmt))))))
-     (else                    '()))))
-
-(define has-superclass
-  (lambda (stmt)
-    (cond
-      ((null? (car (cdr (cdr stmt)))) #f)
-      (else                           #t))))
-
-; add function names and closures for each class function
-(define class-function-closures
-  (lambda (functions state)
-    (cond
-      ((null? functions)              functions)
-      (else                           (cons (func-closure (operator functions) state) (class-function-closures (cdr functions) state))))))
-
-; find class functions from within a class-body
-(define class-functions
-  (lambda (body)
-    (cond
-      ((null? body)              body)
-      ((eq? (car (operator body)) 'function)         (cons (operator body) (class-functions (cdr body))))
-      ((eq? (car (operator body)) 'static-function)  (cons (operator body) (class-functions (cdr body))))
-      (else                                          (class-functions (cdr body))))))
-
-; find instance variables from within a class-body
-(define class-vars
-  (lambda (body)
-    (cond
-      ((null? body)              body)
-      ((eq? (car (operator body)) 'var) (cons (operator body) (class-vars (cdr body))))
-      (else                                          (class-vars (cdr body))))))    
-
-; helper function to check if there are variables declared within the class
-(define has-instance-vars
-  (lambda (stmt)
-    (cond
-      ((eq? (operator (car (class-body stmt))) 'var)     #t) 
-      (else                                              #f))))
 
 ;============================================================================
 ; FUNCTION PROCESSING; added for project 3!!!
@@ -155,74 +50,18 @@
 ; Function call syntax: '(function name formal-params body)
 
 ; outer-layer does m-state functions for variable declarations and function definitions
+(define outer-layer
+  (lambda (stmt state next return continue break throw)
+    (cond
+      ((not (list? stmt))               (next state)) ; at the end; will call main-method
+      ((eq? (operator stmt) 'var)       (parse-decl stmt state next return continue break throw))
+      ((eq? (operator stmt) 'function)  (parse-func stmt state next return continue break throw))
+      (else                             (error "Only function calls and assignments allowed on the base layer"))))) ; Else, it's m-int or m-bool with args to update
 
 ; m-value for function calls (funcalls)
-; change this to handle dot operator - change func-name to return the actual func-name
 (define m-value
   (lambda (funcall state next return continue break throw)
-    (define closure (determine-closure (func-name funcall) state)) ; defining the function's closure (param body func)
-    (m-state (closure-body closure) (environment closure (arguments funcall) state return) ; call the function in m-state
-             (lambda (st) (next (adjust-states st state (- (depth state) (depth st))))) return continue break throw)))
-
-(define determine-closure
-  (lambda (func-name state)
-    (cond
-      ((not (list? func-name)) (lookup-layers func-name state))
-      ((eq? (operator func-name) 'dot) (lookup-layers (arg2 func-name) (lookup-layers (arg1 func-name) state)))
-      (else (error "debugging")))))
-
-; adjusting scope after function call
-(define adjust-states
-  (lambda (funcall-st overall-st counter)
-    (cond
-      ((empty-layers funcall-st) funcall-st)
-      ((< counter 0) funcall-st)
-      ((eq? counter 0) (cons (add-after-funcall (curr-layer overall-st) (curr-layer funcall-st))
-                             (adjust-states (next-layers funcall-st) (next-layers overall-st) 0)))
-      ((> counter 0) (cons (car overall-st) (adjust-states funcall-st (next-layers overall-st) (- counter 1)))))))
-
-; returns the depth of the layers
-(define depth
-  (lambda (layers)
-    (cond
-      ((empty-layers layers) 0)
-      (else (+ 1 (depth (next-layers layers)))))))
-
-; add nonexisting variables
-(define add-after-funcall
-  (lambda (add-from-layer add-to-layer)
-    (add-after-helper add-from-layer add-to-layer (lambda (v) v))))
-
-(define add-after-helper
-  (lambda (add-from add-to return)
-    (cond
-      ((or (empty-state add-from) (empty-state add-to)) (return add-to))
-      ((false? (find-var (get-var add-from) add-to))
-       (add-after-helper (next-state add-from) add-to
-                      (lambda (base) (return (addbinding (get-var add-from) (get-val add-from) base)))))
-      (else (add-after-helper (next-state add-from) (next-state add-to)
-                           (lambda (base) (return (addbinding (get-var add-to) (get-val add-to) base))))))))
-
-; helper to check if the funcall is a dot operator:
-(define has-dot
-  (lambda (funcall)
-    (cond
-      ((eq? (list? (car (cdr funcall))) #f) #f)
-      ((eq? (car (car (cdr funcall))) 'dot) #t)
-      (else #f))))
-
-; helper to check if it's this.
-(define is-this-dot
-  (lambda (dotexp)
-    (cond
-      ((eq? 'this (car (cdr dotexp))) #t)
-      (else                              #f))))
- 
-
-; if the function call is a dot operator, use myfunc-name funcall, else, use m-value 
-(define m-value-dot
-  (lambda (funcall state next return continue break throw)
-    (define closure (lookup-layers (myfunc-name funcall) state)) ; defining the function's closure (param body func)
+    (define closure (lookup-layers (func-name funcall) state)) ; defining the function's closure (param body func)
     (m-state (closure-body closure) (environment closure (arguments funcall) state return) ; call the function in m-state
              next return continue break throw)))
 
@@ -243,10 +82,14 @@
 (define environment-func
   (lambda (name closure return actual-params old-state new-state ind) ; ind returns the index of
     (cond
-      ;((and (eq? ind 0) (not (eq? (length (formal-params closure)) (length actual-params))))
-      ; (error "mismatched parameters and arguments"))
+      ((and (eq? ind 0) (not (eq? (length (formal-params closure)) (length actual-params))))
+       (error "mismatched parameters and arguments"))
       ;; For initializing new state for running a function with static scoping, add the current layer of the outer function.
-      ((null? actual-params) (add-layer (update-global-vars old-state new-state name closure (- (- (depth new-state) 1) (depth old-state)) return)))
+      ((null? actual-params) (add-layer (parse-decl (list 'var name closure) ; add current function's closure
+                                                    (update-global-vars old-state new-state return ; should not disturb the original order
+                                                                        (base-layer old-state (length old-state))
+                                                                        (base-layer new-state (length new-state)))
+                                          (lambda(v)v) (lambda(v)v) (lambda(v)v) (lambda(v)v) (lambda(v)v))))
       ;; For binding actual and formal parameter, use the state of the function current function is called from
       ((num? (curr-actual actual-params)) ; number or numerical expression as param input
        (addbinding-layers (curr-formal (formal-params closure) ind)
@@ -264,33 +107,24 @@
                           (environment-func name closure return (next-params actual-params) old-state new-state (+ ind 1))))
       (else               (error "invalid input to the function parameters")))))
 
-
 ; updating the global variables from new state
-; old state is the definition in the closure
-; new state is the state up to the point up to the funcall
 (define update-global-vars
-  (lambda (old-state new-state func-name closure counter return)
+  (lambda (old-state new-state return old-base new-base)
     (cond
-      ((empty-layers old-state) old-state)
-      ;((< counter 0) (cons (add-after-funcall (curr-layer old-state) (curr-layer new-state)) (update-global-vars (next-layers old-state) (next-layers new-state) counter return)))
-      ((and (eq? counter 0) (or (eq? return 'func-cont) (eq? return 'func-end))) (cons (add-after-funcall (curr-layer old-state) (curr-layer new-state)) (update-global-vars (next-layers old-state) (next-layers new-state) func-name closure (- counter 1) return)))
-      ((eq? counter 0) (cons (update-helper (add-curr-func-def func-name closure (curr-layer old-state)) (curr-layer new-state) (lambda (v) v)) (next-layers new-state)));(update-global-vars (next-layers old-state) (next-layers new-state) (- counter 1) return)))
-      ((> counter 0) (update-global-vars old-state (next-layers new-state) func-name closure (- counter 1) return)))))
-
-; add the function definition to the state
-(define add-curr-func-def
-  (lambda (func-name closure state)
-    (addbinding func-name closure state)))
-
+      ((not (null? (cdr old-state))) (cons (car old-state) (update-global-vars (cdr old-state) new-state return old-base new-base)))
+      ((or (eq? return 'func-cont) (eq? return 'func-end)) (list (update-all-vars old-base new-base (lambda(v)v))))
+      (else (list (update-helper old-base new-base (lambda(v)v)))))))
+ 
 ; helper method for update-global-vars; returns the updated base state
 (define update-helper
   (lambda (old-base new-base return)
     (cond
       ((or (empty-state old-base) (empty-state new-base)) (return old-base))
-      ((find-var (get-var old-base) new-base)
-       (update-helper (next-state old-base) new-base
-                      (lambda (base) (return (addbinding (get-var old-base) (lookup (get-var old-base) new-base) base)))))
-      (else (update-helper (next-state old-base) new-base return)))))
+      ((modify? old-base new-base return)
+       (update-helper (next-state old-base) (next-state new-base)
+                      (lambda (base) (return (updatebinding (get-var old-base) (lookup (get-var old-base) new-base) base)))))
+      (else (update-helper (next-state old-base) (next-state new-base)
+                           (lambda (base) (return (addbinding (get-var old-base) (get-val old-base) base))))))))
  
 ; helper method for checking if variable exists in both states & values not equal & modifiable following static scoping
 (define modify?
@@ -310,6 +144,7 @@
                       (lambda (base) (return (addbinding (get-var old-base) (lookup (get-var old-base) new-base) base)))))
       (else (update-all-vars (next-state old-base) new-base
                            (lambda (base) (return (addbinding (get-var old-base) (get-val old-base) base))))))))
+ 
 
 ; returns whether the variable given is already in scope for both old and new bases
 (define var-exists?
@@ -325,25 +160,13 @@
       ((null? layers) layers)
       ((eq? ind '1) (curr-layer layers))
       (else (base-layer (cdr layers) (- ind 1))))))
-
 ; Helper functions for function functions
 ; For adding function definition
 (define parse-func (lambda (stmt state next return continue break throw)
                      (parse-decl (func-closure stmt state) state next return continue break throw)))
-
-; Add "this" as an additional parameter to the formal parameter list in each (non-static) function's closure.
 ; the closure of a function
-; add the class that this function belongs to to the function closure
-; func-closure with this (made it its own version bc it was messing w parameters, can add it in later if necessary)
-(define func-closure-this (lambda (stmt state) (list 'var (func-name stmt) (list (cons 'this (func-params stmt)) (func-body stmt)
-                                                                            (static-scoping (func-name stmt) state)))))
-; func-closure no this:
 (define func-closure (lambda (stmt state) (list 'var (func-name stmt) (list (func-params stmt) (func-body stmt)
                                                                             (static-scoping (func-name stmt) state)))))
-
-; the function name but accommodating dots
-(define myfunc-name (lambda (stmt) (car (cdr (cdr (car (cdr stmt)))))))
-
 ; the function name
 (define func-name (lambda (stmt) (cadr stmt)))
 ; the function body
@@ -381,21 +204,20 @@
 (define m-state
   (lambda (stmt state next return continue break throw)
     (cond
-      ((not (list? stmt))                   (next state))
-      ((no-return? return stmt)             (next state))
-      ((eq? (operator stmt) '=)             (parse-asgn (arg1 stmt) (arg2 stmt) state next return continue break throw))
-      ((eq? (operator stmt) 'var)           (parse-decl stmt state next return continue break throw))
-      ((eq? (operator stmt) 'while)         (parse-while stmt state next return (lambda (v) v) (lambda (v) v) throw))
-      ((eq? (operator stmt) 'return)        (return (parse-return stmt state next return continue break throw)))
-      ((eq? (operator stmt) 'if)            (parse-if stmt state next return continue break throw))
-      ((eq? (operator stmt) 'begin)         (parse-block stmt state next return continue break throw)) ; For a block of code
-      ((eq? (operator stmt) 'continue)      (continue (rmv-layer state)))
-      ((eq? (operator stmt) 'break)         (break (rmv-layer state)))
-      ((eq? (operator stmt) 'try)           (parse-try stmt state next return continue break throw))
-      ((eq? (operator stmt) 'throw)         (throw (arg1 stmt) (rmv-layer state)))
-      ((eq? (operator stmt) 'funcall)       (m-value stmt state next return continue break throw)) ; function call
-      ((eq? (operator stmt) 'function)      (parse-func stmt state next return continue break throw)) ; declaring function definition
-      ((eq? (operator stmt) 'static-function)  (parse-func stmt state next return continue break throw)) ; declaring function definition
+      ((not (list? stmt))               (next state))
+      ((no-return? return stmt)         (next state))
+      ((eq? (operator stmt) '=)         (parse-asgn (arg1 stmt) (arg2 stmt) state next return continue break throw))
+      ((eq? (operator stmt) 'var)       (parse-decl stmt state next return continue break throw))
+      ((eq? (operator stmt) 'while)     (parse-while stmt state next return (lambda (v) v) (lambda (v) v) throw))
+      ((eq? (operator stmt) 'return)    (return (parse-return stmt state next return continue break throw)))
+      ((eq? (operator stmt) 'if)        (parse-if stmt state next return continue break throw))
+      ((eq? (operator stmt) 'begin)     (parse-block stmt state next return continue break throw)) ; For a block of code
+      ((eq? (operator stmt) 'continue)  (continue (rmv-layer state)))
+      ((eq? (operator stmt) 'break)     (break (rmv-layer state)))
+      ((eq? (operator stmt) 'try)       (parse-try stmt state next return continue break throw))
+      ((eq? (operator stmt) 'throw)     (throw (arg1 stmt) (rmv-layer state)))
+      ((eq? (operator stmt) 'funcall)   (m-value stmt state next return continue break throw)) ; function call
+      ((eq? (operator stmt) 'function)  (parse-func stmt state next return continue break throw)) ; declaring function definition
       ((not (roperand? stmt))           (m-state (loperand stmt) state next return continue break throw)) ; no right operand
       (else (m-state (loperand stmt) state
                      (lambda (v1) (m-state (roperand stmt) (next v1) (lambda (v2) v2) return continue break throw)) return continue break throw))))) ; Else, it's m-int or m-bool with args to update
@@ -411,42 +233,21 @@
 (define parse-asgn 
   (lambda (var expr state next return continue break throw)
     (cond
-      ((and (list? var) (eq? (operator var) 'dot)) (next (updatebinding-layers (arg1 var) (updatebinding-layers var (lookup-layers (arg2 var) (lookup-layers (arg1 var) state))) state)))
       ((equal? (lookup-layers var state) 'not-initialized) (error "Variable not declared yet")) ; var not declared yet
       ((funcall? var)                      (error "attempted to assign value to a function call"))
-      ((funcall? expr)                     (m-value expr state
-                                                    (lambda (st) (next (addbinding-layers var (m-value expr state 'debug return continue break throw) st)))
-                                                    'no-return continue break throw))
-      ((init-class? expr)                  (next (updatebinding-layers var (caddr (lookup-layers (which-class expr) state)) state)))
+      ((funcall? expr)                     (next (updatebinding-layers var (m-value expr state next return continue break throw) state)))
       ((number? expr)                      (next (updatebinding-layers var expr state))) ; assigning int
       ((boolean? expr)                     (next (updatebinding-layers var (bool-cvt expr) state))) ; assigning bool
       ((not (list? expr))                  (next (updatebinding-layers var (lookup-layers expr state) state))) ; variable
       ((bool-check (operator expr))        (next (updatebinding-layers var (make-boolean expr state) (update-state expr state (lambda(v)v) continue break throw))))                                             
       ((int-check (operator expr))         (next (updatebinding-layers var (m-int expr state (lambda(v)v) (lambda(v)v) continue break throw)
                                                                        (update-state expr state (lambda(v)v) continue break throw))))                                              
-      ((eq? '= (operator expr))            (next (updatebinding-layers var (lookup-layers (arg1 expr) (parse-asgn (arg1 expr) (arg2 expr) state
-                                                                                                                  (lambda(v)v) (lambda(v)v) continue break throw))
+      ((eq? '= (operator expr))            (next (updatebinding-layers var ; handle assignment within assignment
+                                                                       (lookup-layers (arg1 expr)
+                                                                                      (parse-asgn (arg1 expr) (arg2 expr) state
+                                                                                                   (lambda(v)v) (lambda(v)v) continue break throw))
                                                                        (parse-asgn (arg1 expr) (arg2 expr) state (lambda(v)v) (lambda(v)v) continue break throw))))
-      ; check for new operator
-      ((eq? #t (is-new expr))              (next (updatebinding-layers var (cdr state) state)))
       (else                                (next (updatebinding-layers var expr state))))))
-
-(define init-class?
-  (lambda (expr)
-    (cond
-      ((not (list? expr)) #f)
-      ((eq? (operator expr) 'new) #t)
-      (else #f))))
-
-(define which-class (lambda (expr) (cadr expr)))
-
-; helper to check if expr is new
-(define is-new
-  (lambda (expr)
-    (cond
-      ((and (eq? (list? expr) #t) (eq? 'new (car expr))) #t)
-      (else                   #f))))
-  
 
 ; parse-decl takes a declaration statement and adds it to the state with atom 'novalue to show it hasnt been given a value
 (define parse-decl
@@ -457,8 +258,7 @@
       ((funcall? (arg2 stmt))              (parse-asgn (arg1 stmt) (m-value (arg2 stmt) state next return continue break throw)
                                                        (addbinding-layers (arg1 stmt) 'novalue state) next
                                                        return continue break throw))
-      ; say if (new) is on the left side, add the instance closure of the class to the state ? 
-      (else                                (parse-asgn (arg1 stmt) (arg2 stmt) (addbinding-layers (arg1 stmt) (instance-closure (car (parser "testprogram.txt"))) state)
+      (else                                (parse-asgn (arg1 stmt) (arg2 stmt) (addbinding-layers (arg1 stmt) 'novalue state)
                                                        next return continue break throw)))))
 
 
@@ -494,49 +294,12 @@
 (define parse-block
   (lambda (stmt layers next return continue break throw) ; assume layers are inputted
     (cond
-      ((empty-stmt stmt)                            (next layers)) ; remove the current layer at the end of block
-      ((fun-block stmt)                             (parse-block (next-fun-stmts stmt) layers (lambda (new-st) (next (pushdown-layer stmt new-st))) return continue break throw))
-      ((eq? 'begin (curr-stmt stmt))                (parse-block (next-stmts stmt) (add-layer layers) (lambda (new-st) (next (pushdown-layer stmt new-st))) return continue break throw))
-      ((eq? 'continue (keyword (curr-stmt stmt)))   (continue (pushdown-layer layers)))
-      ((eq? 'break (keyword (curr-stmt stmt)))      (break (pushdown-layer layers)))
+      ((empty-stmt stmt)                            (next (rmv-layer layers))) ; remove the current layer at the end of block
+      ((fun-block stmt)                             (parse-block (next-fun-stmts stmt) layers next return continue break throw))
+      ((eq? 'begin (curr-stmt stmt))                (parse-block (next-stmts stmt) (add-layer layers) next return continue break throw))
+      ((eq? 'continue (keyword (curr-stmt stmt)))   (continue (rmv-layer layers)))
+      ((eq? 'break (keyword (curr-stmt stmt)))      (break (rmv-layer layers)))
       (else                                         (next-block stmt layers next return continue break throw))))) ; parse next in the block
-; for names not passing down, make next continuation where those names are taken out (var and formal params)
-(define takeout-vars
-  (lambda (list state)
-    (cond
-      ((or (null? list) (empty-state state)) state)
-      ((find-var (car list) state) (takeout-vars (cdr list) (removebinding (car list) state)))
-      (else (addbinding (get-var state) (get-val state) (takeout-vars (cdr list) (next-state state)))))))
-
-(define list-to-eliminate
-  (lambda (stmt)
-    (cond
-      ((null? stmt) '())
-      ((fun-block stmt) (list-to-eliminate (next-fun-stmts stmt)))
-      ((eq? 'begin (curr-stmt stmt)) (list-to-eliminate (next-stmts stmt)))
-      ((eq? 'var (keyword (curr-stmt stmt))) (cons (arg1 (curr-stmt stmt)) (list-to-eliminate (next-stmts stmt))))
-      (else (list-to-eliminate (next-stmts stmt))))))
-
-; push down the current layer's values to the lower layers
-(define pushdown-layer
-  (lambda (stmt layers)
-    (pushdown-helper (takeout-vars (list-to-eliminate stmt) (curr-layer layers)) (next-layers layers))))
-
-(define pushdown-helper
-  (lambda (top-layer bottom-layers)
-    (cond
-      ((empty-state top-layer) bottom-layers)
-      ((has-binding (get-var top-layer) bottom-layers)
-       (pushdown-helper (next-state top-layer) (updatebinding-all-layers (get-var top-layer) (get-val top-layer) bottom-layers (lambda(v)v)))) ; change to updatebinding-layers?
-      (else (pushdown-helper (next-state top-layer) bottom-layers)))))
-
-(define updatebinding-all-layers
-  (lambda (var val layers return)
-    (cond
-      ((empty-layers layers) (return layers))
-      ((find-var var (curr-layer layers)) (updatebinding-all-layers var val (next-layers layers)
-                                                                    (lambda (v) (return (cons (updatebinding var val (curr-layer layers)) v)))))
-      (else (updatebinding-all-layers var val (next-layers layers) (lambda (v) (return (cons (curr-layer layers) v))))))))
 
 ; returns true if the current block is a function block
 (define fun-block
@@ -569,7 +332,6 @@
       ((intexp? boolexp)                 (m-int boolexp state next return continue break throw)) ; handle intexps nested in boolean expressions
       ((has-assignment boolexp state)    (handle-boolean-side-effects boolexp state)) ; if an assignment is nested in a boolexp
       ((eq? (operator boolexp) 'funcall) (m-value boolexp state next return continue break throw))
-      ((eq? (operator boolexp) 'dot)     (lookup-layers (arg2 boolexp) (lookup-layers (arg1 boolexp) state)))
       ((eq? (operator boolexp) '&&)      (and         (loperand-boolean boolexp state next return continue break throw)
                                                       (right-boolexp boolexp state next return continue break throw)))
       ((eq? (operator boolexp) '||)      (or          (loperand-boolean boolexp state next return continue break throw)
@@ -593,12 +355,10 @@
   (lambda (intexp state next return continue break throw)
     (cond
       ((number? intexp)                  intexp)
-      ;((dotexp? intexp)                    (return-integer (var-dot intexp) state))
       ((symbol? intexp)                  (return-integer intexp state)) ; lookup variable value
       ((has-assignment intexp state)     (handle-int-side-effects intexp state next return continue break throw)); FIX ; if an assignment is nested in an intexp
       ((and (eq? (operator intexp) '-) (unary? intexp)) (* '-1 (m-int (loperand intexp) (left-intexp intexp state) next return continue break throw)))
       ((eq? (operator intexp) 'funcall)  (m-value intexp state next return continue break throw))
-      ((eq? (operator intexp) 'dot)      (lookup-layers (arg2 intexp) (lookup-layers (arg1 intexp) state)))
       ((eq? (operator intexp) '+)        (+ (loperand-intexp intexp state next return continue break throw)
                                             (right-intexp intexp state next return continue break throw)))
       ((eq? (operator intexp) '-)        (- (loperand-intexp intexp state next return continue break throw)
@@ -609,9 +369,6 @@
                                                    (right-intexp intexp state next return continue break throw)))
       ((eq? (operator intexp) '%)        (remainder (loperand-intexp intexp state next return continue break throw)
                                                     (right-intexp intexp state next return continue break throw))))))
-
-; var-dot takes in an dotexp and returns the variable within the dot
-(define var-dot (lambda (dotexp) (car (cdr (cdr dotexp)))))
  
 ;============================================================================
 ; STATE FUNCTIONS (i.e. lookup, addbinding, etc.)
@@ -631,8 +388,9 @@
   (lambda (var val layers)
     (cond
       ((empty-layers layers) layers) ; state is empty; return original state
-      ((find-var var (curr-layer layers)) (updatebinding-layers var val layers))
-      (else (cons (addbinding var val (curr-layer layers)) (rmv-layer layers)))))) ; add to the top layer
+      ((false? (has-binding var layers)) ; var not in the layers yet; add to the top layer
+       (cons (addbinding var val (curr-layer layers)) (rmv-layer layers)))
+      (else (updatebinding-layers var val layers))))) ; update existing binding if exists
 
 ; remove a binding from the state while accounting for multiple layers
 (define removebinding-layers
@@ -764,13 +522,19 @@
 (define next-block
   (lambda (stmt layers next return continue break throw)
     (cond
+      ((and (eq? 'funcall (operator (curr-stmt stmt))) (eq? return 'func-cont))
+       (m-state (curr-stmt stmt) layers
+                (lambda (state) (end-of-funcall (next-stmts stmt) layers state next 'func-cont continue break throw))
+                return continue break throw))
       ((eq? 'funcall (operator (curr-stmt stmt)))
-      (m-state (curr-stmt stmt) layers
+       (m-state (curr-stmt stmt) layers
+                (lambda (state) (end-of-funcall (next-stmts stmt) layers state next 'no-return continue break throw))
+                'no-return continue break throw)) ; return functions different; 'func-cont if next is also function call
+                                                  ; in the next continuation function, update state to have updated global variables                       
+      (else
+       (m-state (curr-stmt stmt) layers
                 (lambda (state) (parse-block (next-stmts stmt) state next return continue break throw))
-                'no-return continue break throw))
-      (else (m-state (curr-stmt stmt) layers
-                     (lambda (state) (parse-block (next-stmts stmt) state next return continue break throw))
-                     return continue break throw)))))
+                return continue break throw)))))
 
 ; adjusts the next function dependong on whether the next function is a function call or not
 (define end-of-funcall
@@ -785,7 +549,6 @@
 (define update
   (lambda (old-state new-state)
     (update-global-vars old-state new-state 'func-end (base-layer old-state (length old-state)) (base-layer new-state (length new-state)))))
-
 
 
 ; abstract different parts of block
@@ -939,23 +702,11 @@
         (eq? (operator exp) '%))))
 
 ; returns the value of the integer or a using before assigning error
-; modify to allow dots
-
-;       ;((list? intexp)                    (return-integer (var-dot intexp) state))
-
 (define return-integer
   (lambda (intexp state)
-    (cond
-      ((eq? (dotexp? intexp) #t) (return-integer (var-dot intexp) state))
-      ((equal? (lookup-layers intexp state) 'novalue) (error "using before assigning"))
-      (else (lookup-layers intexp state))))) ; lookup variable value
-
-; return whether or not this is a dotexp
-(define dotexp?
-  (lambda (intexp)
-    (cond
-      ((and (eq? (list? intexp) #t) (eq? (car intexp) 'dot)) #t)
-      (else #f))))
+    (if (equal? (lookup-layers intexp state) 'novalue)
+                                      (error "using before assigning")
+                                      (lookup-layers intexp state)))) ; lookup variable value
 
 ; returns the left operand of the int expression
 (define loperand-intexp
@@ -994,8 +745,7 @@
                      (lambda (new-state)
                        (return (update-state (roperand stmt) new-state (lambda (new-state2) new-state2)
                                              continue break throw))) continue break throw))
-      ; this had one less necessary parameter - next? 
-      (else (return (m-state stmt state (lambda (v) v) return continue break throw)))))) ; update state
+      (else (return (m-state stmt state (lambda (v) v) continue break throw)))))) ; update state
 
 ; return whether a variable already exists in layers/states
 (define has-binding
@@ -1143,7 +893,7 @@
 (check-expect (interpret "MakeTestsPart2/test20b.txt")  21)
 |#
 
-#|
+
 (check-expect (interpret "MakeTestsPart3/test1c.txt")   10)
 (check-expect (interpret "MakeTestsPart3/test2c.txt")   14)
 (check-expect (interpret "MakeTestsPart3/test3c.txt")   45)
@@ -1163,47 +913,9 @@
 (check-error  (interpret "MakeTestsPart3/test17c.txt")  "using before declaring")
 (check-expect (interpret "MakeTestsPart3/test18c.txt")  125)
 (check-expect (interpret "MakeTestsPart3/test19c.txt")  100)
-(check-expect (interpret "MakeTestsPart3/test20c.txt")  2000400) |#
+(check-expect (interpret "MakeTestsPart3/test20c.txt")  2000400)
 ; ADDITIONAL CHALLENGES:
 ;(check-expect (interpret "MakeTestsPart3/test21c.txt")  3421)
 ;(check-expect (interpret "MakeTestsPart3/test22c.txt")  20332)
 ;(check-expect (interpret "MakeTestsPart3/test23c.txt")  21)
-
-; PART 4 TEST CASES
-(check-expect (interpret "MakeTestsPart4/test1d.txt")   15) ; works
-(check-expect (interpret "MakeTestsPart4/test2d.txt")   12) ; works
-(check-expect (interpret "MakeTestsPart4/test3d.txt")   125)
-(check-expect (interpret "MakeTestsPart4/test4d.txt")   36)
-(check-expect (interpret "MakeTestsPart4/test5d.txt")   54)
-(check-expect (interpret "MakeTestsPart4/test6d.txt")   110)
-#|(check-expect (interpret "MakeTestsPart4/test7d.txt")   26)
-(check-expect (interpret "MakeTestsPart4/test8d.txt")   117)
-(check-expect (interpret "MakeTestsPart4/test9d.txt")   32)
-(check-expect (interpret "MakeTestsPart4/test10d.txt")   15)
-(check-expect (interpret "MakeTestsPart4/test11d.txt")   123456)
-(check-expect (interpret "MakeTestsPart4/test12d.txt")   5285)
-(check-expect (interpret "MakeTestsPart4/test13d.txt")   -716)|#
-; THE FOLLOWING ARE OPTIONAL:
-#|
-; (overloaded functions, call-by-reference, expressions with side-effects)
-(check-expect (interpret "MakeTestsPart4/test21d.txt")   530)
-(check-expect (interpret "MakeTestsPart4/test22d.txt")   66)
-(check-expect (interpret "MakeTestsPart4/test23d.txt")   1026)
-(check-expect (interpret "MakeTestsPart4/test24d.txt")   2045)
-; tests for implementing static functions & variables
-(check-expect (interpret "MakeTestsPart4/test31d.txt")   20)
-(check-expect (interpret "MakeTestsPart4/test32d.txt")   350)
-(check-expect (interpret "MakeTestsPart4/test33d.txt")   615)
-(check-expect (interpret "MakeTestsPart4/test34d.txt")   16)
-(check-expect (interpret "MakeTestsPart4/test35d.txt")   100)
-(check-expect (interpret "MakeTestsPart4/test36d.txt")   420)
-(check-error  (interpret "MakeTestsPart4/test37d.txt")   "no this")
-; tests for abstract methods
-(check-expect (interpret "MakeTestsPart4/test41d.txt")   300)
-(check-error  (interpret "MakeTestsPart4/test42d.txt")   "non-overriden abstract method")
-; tests for non-default constructors
-(check-expect (interpret "MakeTestsPart4/test51d.txt")   417)
-(check-expect (interpret "MakeTestsPart4/test52d.txt")   10)
-(check-expect (interpret "MakeTestsPart4/test53d.txt")   48)
-(check-expect (interpret "MakeTestsPart4/test54d.txt")   1659) |#
 

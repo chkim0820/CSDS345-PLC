@@ -31,3 +31,19 @@ grandparent(X, Y) :- parentof(X, A), parentof(A, Y).
 
 % another rule for siblings
 sibling(A, B) :- parentof(X, A), parentof(X, B), A \= B.
+
+cousin(A, B) :- parentof(X, A), parentof(Y, B), sibling(X, Y), X \= Y, A \= B.
+
+parentinlawof(A, B) :- parentof(A, X), married(X, B).
+
+
+% Prolog lists
+
+% Prolog's myappend will be of form
+% myappend(input1, input2, output)
+myappend([], L2, L2).
+myappend([H|T], L2, [H|S]) :- myappend(T, L2, S).
+
+% could find different possible values for the input variables
+myreverse([], []).
+myreverse([H|T], X) :- myreverse(T, R), myappend(R, [H], X).

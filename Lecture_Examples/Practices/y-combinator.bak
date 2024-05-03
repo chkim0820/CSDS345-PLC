@@ -1,0 +1,43 @@
+#lang racket
+
+(define factorial
+  (lambda (n)
+    (if (zero? n)
+        1
+        (* n (factorial (- n 1))))))
+
+; try creating a function where its name is not mentioned inside its body
+(define crash (lambda (n) (error 'crash)))
+
+(define fact1
+  (lambda (n)
+    (if (zero? n)
+        1
+        (* n ((lambda (n)
+                (if (zero? n)
+                    1
+                    (* n (crash (- n 1)))))
+              (- n 1))))))
+
+; keep replacing crash with the function; extending
+; this way, "crash" becomes just a placeholder
+(define fact1-1
+  (lambda (n)
+    (if (zero? n)
+        1
+        (* n ((lambda (n)
+                (if (zero? n)
+                    1
+                    (* n ((lambda (n)
+                            (if (zero? n)
+                                1
+                                (* 1 ((lambda (n)
+                                        (if (zero? n)
+                                            1
+                                            (crash (- n 1))))
+                                      (- n 1)))))
+                          (- n 1)))))
+              (- n 1))))))
+; this is "unrolling" the recursion by replacing each recursive call with the code that is the function being called
+; not actually doing recursion; just unrolling
+; physically hard-coding in the same thing; doing the same thing every time

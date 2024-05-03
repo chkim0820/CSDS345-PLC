@@ -20,3 +20,4 @@ len([_|T], N) :- len(T, M), N is M + 1.
 % factorial
 factorial(0,1).
 factorial(N, R) :- M is N - 1, factorial(M, R1), R is R1 * N.
+

@@ -10,6 +10,7 @@ factorial2(N, X) :- factorial2(M, Y), N is M + 1, X is Y * N.
 % The cut is a predicate that is always true
 % When the search crosses the cut, any variables that are bound to values have those bindings fixed.
 % All recursing and searching will only be on the rules it encounters after the cut.
+% So will not go to any later conditions
 
 removeall(_, [], []).
 removeall(A, [A|T], R) :- removeall(A, T, R), !. % prevents from going to H
